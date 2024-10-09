@@ -1,0 +1,64 @@
+{
+    "title": "APTi",
+    "config": {
+        "step": {
+            "user": {
+                "description": "",
+                "data": {
+                    "username": "Username",
+                    "password": "Password"
+                }
+            }
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single configuration is allowed."
+        },
+        "error": {
+            "login_failed": "Login failed"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "maint_payment": {
+                "name": "Maintenance Payment Amount"
+            },
+            "maint_cost": {
+                "name": "{category}"
+            },
+            "maint_update_time": {
+                "name": "Update Time"
+            },
+            "energy_usage": {
+                "name": "Total Energy Usage"
+            },
+            "energy_detail": {
+                "name": "{category} Usage"
+            },
+            "energy_type": {
+                "name": "Total {category} Energy"
+            },
+            "energy_update_time": {
+                "name": "Update Time"
+            }
+        }
+    },
+    "services": {
+        "visit_reservation": {
+            "name": "Visitor Vehicle Reservation",
+            "fields": {
+                "car_no": {
+                    "name": "Car Number",
+                    "description": "Please enter in the format '12GA3456'."
+                },
+                "phone_no": {
+                    "name": "Phone Number",
+                    "description": "Enter numbers only without hyphens."
+                },
+                "visit_date": {
+                    "name": "Visit Date",
+                    "description": "Please enter in the format '20241010'."
+                }
+            }
+        }
+    }
+}

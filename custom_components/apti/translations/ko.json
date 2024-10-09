@@ -1,0 +1,64 @@
+{
+    "title": "아파트아이",
+    "config": {
+        "step": {
+            "user": {
+                "description": "",
+                "data": {
+                    "username": "사용자 이름",
+                    "password": "패스워드"
+                }
+            }
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single configuration is allowed."
+        },
+        "error": {
+            "login_failed": "로그인 실패"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "maint_payment": {
+                "name": "관리비 납부 금액"
+            },
+            "maint_cost": {
+                "name": "{category}"
+            },
+            "maint_update_time": {
+                "name": "업데이트 시간"
+            },
+            "energy_usage": {
+                "name": "에너지 전체 사용량"
+            },
+            "energy_detail": {
+                "name": "{category} 사용량"
+            },
+            "energy_type": {
+                "name": "{category} 에너지 총액"
+            },
+            "energy_update_time": {
+                "name": "업데이트 시간"
+            }
+        }
+    },
+    "services": {
+        "visit_reservation": {
+            "name": "방문차량 예약",
+            "fields": {
+                "car_no": {
+                    "name": "차량 번호",
+                    "description": "'12가3456' 형식으로 입력하세요."
+                },
+                "phone_no": {
+                    "name": "휴대폰 번호",
+                    "description": "하이픈 없이 숫자만 입력하세요."
+                },
+                "visit_date": {
+                    "name": "방문일",
+                    "description": "'20241010' 형식으로 입력하세요."
+                }
+            }
+        }
+    }
+}
