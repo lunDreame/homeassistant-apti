@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 import voluptuous as vol
 
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_ID, CONF_PASSWORD
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 import homeassistant.helpers.config_validation as cv
 
 from .apti import APTiAPI
-from .const import DOMAIN, LOGGER
+from .const import DOMAIN
 
 
 class APTiConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -26,23 +26,25 @@ class APTiConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            username = user_input[CONF_USERNAME]
+            id = user_input[CONF_ID]
             password = user_input[CONF_PASSWORD]
             
-            api = APTiAPI(self.hass, None)
-            await api.login(username, password)
+            api = APTiAPI(
+                hass=self.hass, entry=None, id=id, password=password
+            )
+            await api.login()
 
             if not api.logged_in:
                 errors["base"] = "login_failed"
             else:
-                await self.async_set_unique_id(user_input[CONF_USERNAME])
+                await self.async_set_unique_id(user_input[CONF_ID])
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=user_input[CONF_USERNAME], data=user_input)
+                return self.async_create_entry(title=user_input[CONF_ID], data=user_input)
         
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(CONF_USERNAME): cv.string,
+                vol.Required(CONF_ID): cv.string,
                 vol.Required(CONF_PASSWORD): cv.string,
             }),
             errors=errors

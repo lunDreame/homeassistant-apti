@@ -3,10 +3,13 @@
     "config": {
         "step": {
             "user": {
-                "description": "",
+                "description": "아이디 또는 휴대폰 번호를 입력해 주세요.",
                 "data": {
-                    "username": "사용자 이름",
+                    "id": "아이디 / 휴대폰 번호",
                     "password": "패스워드"
+                },
+                "data_description": {
+                    "id": "휴대폰 번호의 경우 숫자만 입력해 주세요."
                 }
             }
         },
@@ -19,14 +22,11 @@
     },
     "entity": {
         "sensor": {
-            "maint_payment": {
-                "name": "관리비 납부 금액"
-            },
-            "maint_cost": {
+            "maint_item": {
                 "name": "{category}"
             },
-            "maint_update_time": {
-                "name": "업데이트 시간"
+            "maint_payment": {
+                "name": "관리비 납부 금액"
             },
             "energy_usage": {
                 "name": "에너지 전체 사용량"
@@ -36,28 +36,6 @@
             },
             "energy_type": {
                 "name": "{category} 에너지 총액"
-            },
-            "energy_update_time": {
-                "name": "업데이트 시간"
-            }
-        }
-    },
-    "services": {
-        "visit_reservation": {
-            "name": "방문차량 예약",
-            "fields": {
-                "car_no": {
-                    "name": "차량 번호",
-                    "description": "'12가3456' 형식으로 입력하세요."
-                },
-                "phone_no": {
-                    "name": "휴대폰 번호",
-                    "description": "하이픈 없이 숫자만 입력하세요."
-                },
-                "visit_date": {
-                    "name": "방문일",
-                    "description": "'20241010' 형식으로 입력하세요."
-                }
             }
         }
     }

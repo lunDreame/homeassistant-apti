@@ -29,6 +29,15 @@ class APTiSensorEntityDescription(SensorEntityDescription):
 
 SENSORS: tuple[APTiSensorEntityDescription, ...] = (
     APTiSensorEntityDescription(
+        key="maint_item",
+        translation_key="maint_item",
+        translation_placeholders=lambda key: {"category": key["항목"]},
+        format_id=lambda key: f"{key['항목']}_maint_item",
+        chepter_name="관리비",
+        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("당월")),
+        extra_attributes=lambda value: value,
+    ),
+    APTiSensorEntityDescription(
         key="maint_payment",
         translation_key="maint_payment",
         format_id="maint_payment",
@@ -37,28 +46,11 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
         extra_attributes=lambda value: value,
     ),
     APTiSensorEntityDescription(
-        key="maint_cost",
-        translation_key="maint_cost",
-        translation_placeholders=lambda key: {"category": key["항목"]},
-        format_id=lambda key: f"{key['항목']}_maint_cost",
-        chepter_name="관리비",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("당월")),
-        extra_attributes=lambda value: value,
-    ),
-    APTiSensorEntityDescription(
-        key="maint_update_time",
-        translation_key="maint_update_time",
-        format_id="maint_update_time",
-        chepter_name="관리비",
-        value_fn=lambda value: value,
-        extra_attributes=lambda value: None,
-    ),
-    APTiSensorEntityDescription(
         key="energy_usage",
         translation_key="energy_usage",
         format_id="energy_usage",
         chepter_name="에너지",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("전체 사용량")),
+        value_fn=lambda value: find_value_by_condition(value, lambda k: k.endswith("사용")),
         extra_attributes=lambda value: value,
     ),
     APTiSensorEntityDescription(
@@ -73,19 +65,11 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
     APTiSensorEntityDescription(
         key="energy_type",
         translation_key="energy_type",
-        translation_placeholders=lambda key: {"category": key["에너지 유형"]},
-        format_id=lambda key: f"{key['에너지 유형']}_energy_type",
+        translation_placeholders=lambda key: {"category": key["유형"]},
+        format_id=lambda key: f"{key['유형']}_energy_type",
         chepter_name="에너지",
         value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("총액")),
         extra_attributes=lambda value: value,
-    ),
-    APTiSensorEntityDescription(
-        key="energy_update_time",
-        translation_key="energy_update_time",
-        format_id="energy_update_time",
-        chepter_name="에너지",
-        value_fn=lambda value: value,
-        extra_attributes=lambda value: None,
     ),
 )
 
@@ -125,16 +109,17 @@ class APTiSensor(APTiDevice, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator, entity_description)
         self.entity_description = entity_description
-        self._attr_unique_id = entity_description.format_id
-        self._attr_extra_state_attributes = entity_description.extra_attributes(
-            coordinator.data[entity_description.key]
+
+        self._attr_unique_id = self.description.format_id
+        self._attr_extra_state_attributes = self.description.extra_attributes(
+            coordinator.data[self.description.key]
         )
 
     @property
     def native_value(self) -> str:
         """Return the state of the sensor."""
-        value = self._coordinator.data[self._entity.key]
-        return self.entity_description.value_fn(value)
+        value = self.coordinator.data[self.description.key]
+        return self.description.value_fn(value)
 
 
 class APTiCategorySensor(APTiDevice, SensorEntity):
@@ -148,23 +133,24 @@ class APTiCategorySensor(APTiDevice, SensorEntity):
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, entity_description)
-        self.entity_description = entity_description
         self.category = category
-        self._attr_unique_id = entity_description.format_id(category)
-        self._attr_extra_state_attributes = entity_description.extra_attributes(
+        self.entity_description = entity_description
+        
+        self._attr_unique_id = self.description.format_id(category)
+        self._attr_extra_state_attributes = self.description.extra_attributes(
             category
         )
 
     @property
     def native_value(self) -> datetime | str:
         """Return the state of the sensor."""
-        return self.entity_description.value_fn(self.category)
+        return self.description.value_fn(self.category)
 
     @property
     def translation_placeholders(self) -> dict[str, str] | None:
         """Return the translation placeholders."""
         if self.category:
-            return self.entity_description.translation_placeholders(
+            return self.description.translation_placeholders(
                 self.category
             )
         return None

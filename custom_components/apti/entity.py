@@ -15,12 +15,10 @@ class APTiBase:
     """Base class for APT.i."""
 
     def __init__(
-        self,
-        coordinator: APTiDataUpdateCoordinator,
-        entity
+        self, coordinator: APTiDataUpdateCoordinator, description
     ):
-        self._coordinator = coordinator
-        self._entity = entity
+        self.coordinator = coordinator
+        self.description = description
     
     @property
     def device_info(self) -> DeviceInfo:
@@ -28,19 +26,19 @@ class APTiBase:
         return DeviceInfo(
             configuration_url="https://www.apti.co.kr/apti/",
             identifiers={(
-                DOMAIN, f"{self._coordinator.api.username}_{self._entity.chepter_name}"
+                DOMAIN, f"{self.coordinator.id}_{self.description.chepter_name}"
             )},
             manufacturer="APT.i Co.,Ltd.",
             model="APT.i",
-            name=self._entity.chepter_name,
+            name=self.description.chepter_name,
         )
 
 
 class APTiDevice(APTiBase, Entity):
     """APT.i device class."""
 
-    def __init__(self, coordinator, entity):
-        super().__init__(coordinator, entity)
+    def __init__(self, coordinator, description):
+        super().__init__(coordinator, description)
         self._attr_has_entity_name = True
 
     @property
@@ -50,12 +48,12 @@ class APTiDevice(APTiBase, Entity):
 
     async def async_added_to_hass(self):
         """Called when added to Hass."""
-        self._coordinator.api.data.add_callback(self.async_update_callback)
+        self.coordinator.api.data.add_callback(self.async_update_callback)
         self.schedule_update_ha_state()
 
     async def async_will_remove_from_hass(self) -> None:
         """Called when removed from Hass."""
-        self._coordinator.api.data.remove_callback(self.async_update_callback)
+        self.coordinator.api.data.remove_callback(self.async_update_callback)
 
     @callback
     def async_restore_last_state(self, last_state) -> None:
@@ -70,7 +68,7 @@ class APTiDevice(APTiBase, Entity):
     @property
     def available(self) -> bool:
         """Return whether the device is available."""
-        return self._coordinator.api.logged_in
+        return self.coordinator.api.logged_in
 
     @property
     def should_poll(self) -> bool:

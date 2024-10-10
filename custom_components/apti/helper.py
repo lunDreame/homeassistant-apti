@@ -1,6 +1,7 @@
 """Defines helper function."""
 
 from typing import Any
+import re
 
 from .const import LOGGER
 
@@ -27,3 +28,7 @@ def find_value_by_condition(data_dict: dict, condition) -> Any | None:
         if condition(key):
             return value
     return None
+
+def is_phone_number(id_value: str) -> bool:
+    phone_number_pattern = r'^010\d{8}$'
+    return bool(re.match(phone_number_pattern, id_value))
