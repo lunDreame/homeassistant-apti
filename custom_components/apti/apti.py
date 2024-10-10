@@ -175,7 +175,7 @@ class APTiAPI:
                     row = link.find_parent("td").parent
                     category = link.text
                     current_month, previous_month, change = [
-                        td.text.strip() + "원" for td in row.find_all("td")[1:4]
+                        td.text.strip().replace(",", "") for td in row.find_all("td")[1:4]
                     ]
                     if all([category, current_month, previous_month, change]):
                         self.data.maint.item.append({
@@ -225,7 +225,7 @@ class APTiAPI:
                 }
                 payment_span = soup.select_one("span.costPay")
                 if payment_span:
-                    cost_info["납부할 금액"] = payment_span.text.strip() + "원"
+                    cost_info["납부할 금액"] = payment_span.text.strip().replace(",", "")
                 else:
                     LOGGER.warning("납부할 금액의 span 요소를 찾을 수 없습니다.")
 
@@ -248,7 +248,7 @@ class APTiAPI:
                 soup = BeautifulSoup(resp, "html.parser")
 
                 energy_top = soup.find("div", class_="energyTop")
-                total_usage = energy_top.find("strong", class_="data1").text.strip() + "원"
+                total_usage = energy_top.find("strong", class_="data1").text.strip().replace(",", "")
                 month = energy_top.find("span", class_="month").text.strip()
     
                 energy_data = soup.find("div", class_="energy_data")
@@ -276,7 +276,7 @@ class APTiAPI:
                 for box in energy_boxes:
                     energy_type = box.find("h3").text.strip()
                     usage = box.find("li").find("strong").text.strip()
-                    cost = box.find("li", class_="line").find_next_sibling("li").find("strong").text.strip() + "원"
+                    cost = box.find("li", class_="line").find_next_sibling("li").find("strong").text.strip().replace(",", "")
                     comparison = box.find("div", class_="txtBox").find("strong").text.strip()
         
                     self.data.energy.detail_usage.append({
@@ -306,7 +306,7 @@ class APTiAPI:
                 if electricity:
                     electricity_info = {
                         "유형": "전기",
-                        "총액": electricity.find("div", class_="enePay").text.strip(),
+                        "총액": electricity.find("div", class_="enePay").text.strip().replace(",", "").replace("원", ""),
                         "사용량": electricity.find("p", class_="eneDownTxt").text.split("(")[1].split(")")[0].strip(),
                         "평균 사용량": electricity.find("p", class_="eneUpTxt").text.split("(")[1].split(")")[0].strip(),
                         "비교": electricity.find("div", class_="energy_data date1").find("p", class_="txt").text,
@@ -325,7 +325,7 @@ class APTiAPI:
                 if heat:
                     heat_info = {
                         "유형": "열",
-                        "총액": heat.find("div", class_="enePay").text.strip(),
+                        "총액": heat.find("div", class_="enePay").text.strip().replace(",", "").replace("원", ""),
                         "비교": heat.find("div", class_="energy_data date1").find("p", class_="txt").text,
                     }
 

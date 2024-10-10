@@ -34,6 +34,7 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
         translation_placeholders=lambda key: {"category": key["항목"]},
         format_id=lambda key: f"{key['항목']}_maint_item",
         chepter_name="관리비",
+        unit_of_measurement = "원",
         value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("당월")),
         extra_attributes=lambda value: value,
     ),
@@ -42,6 +43,7 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
         translation_key="maint_payment",
         format_id="maint_payment",
         chepter_name="관리비",
+        unit_of_measurement = "원",
         value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("납부할 금액")),
         extra_attributes=lambda value: value,
     ),
@@ -50,6 +52,7 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
         translation_key="energy_usage",
         format_id="energy_usage",
         chepter_name="에너지",
+        unit_of_measurement = "원",
         value_fn=lambda value: find_value_by_condition(value, lambda k: k.endswith("사용")),
         extra_attributes=lambda value: value,
     ),
@@ -59,6 +62,7 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
         translation_placeholders=lambda key: {"category": key["유형"]},
         format_id=lambda key: f"{key['유형']}_energy_detail",
         chepter_name="에너지",
+        unit_of_measurement = "",
         value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("사용량")),
         extra_attributes=lambda value: value,
     ),
@@ -68,6 +72,7 @@ SENSORS: tuple[APTiSensorEntityDescription, ...] = (
         translation_placeholders=lambda key: {"category": key["유형"]},
         format_id=lambda key: f"{key['유형']}_energy_type",
         chepter_name="에너지",
+        unit_of_measurement = "원",
         value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("총액")),
         extra_attributes=lambda value: value,
     ),
@@ -115,6 +120,8 @@ class APTiSensor(APTiDevice, SensorEntity):
             coordinator.data[self.description.key]
         )
 
+        self._attr_native_unit_of_measurement = self.description.unit_of_measurement
+
     @property
     def native_value(self) -> str:
         """Return the state of the sensor."""
@@ -140,6 +147,8 @@ class APTiCategorySensor(APTiDevice, SensorEntity):
         self._attr_extra_state_attributes = self.description.extra_attributes(
             category
         )
+
+        self._attr_native_unit_of_measurement = self.description.unit_of_measurement
 
     @property
     def native_value(self) -> datetime | str:
