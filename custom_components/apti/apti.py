@@ -138,7 +138,7 @@ class APTiAPI:
                     if match:
                         dong = match.group(1)
                         ho = match.group(2)
-                        self.dong_ho = str('0' + dong + ho.zfill(4))
+                        self.dong_ho = str(dong.zfill(4) + ho.zfill(4))
                         LOGGER.debug(f"APT DongHo: {self.dong_ho}")
 
                         self.logged_in = True
