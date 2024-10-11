@@ -8,7 +8,7 @@ import logging
 from homeassistant.const import Platform
 
 DOMAIN = "apti"
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR

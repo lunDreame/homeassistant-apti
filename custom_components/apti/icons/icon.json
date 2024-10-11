@@ -1,0 +1,34 @@
+{
+    "maint_item": {
+        "건물보험료": "mdi:home-lock",
+        "경비비": "mdi:security",
+        "공동수도료": "mdi:water-pump",
+        "공동전기료": "mdi:lightbulb-group",
+        "관리비 납부 금액": "mdi:currency-krw",
+        "기본난방비": "mdi:radiator",
+        "세대수도료": "mdi:water-outline",
+        "세대전기료": "mdi:flash-outline",
+        "소독비": "mdi:biohazard",
+        "수선유지비": "mdi:tools",
+        "승강기유지비": "mdi:elevator",
+        "승강기전기": "mdi:elevator-passenger-outline",
+        "위탁관리수수료": "mdi:account-cash",
+        "일반관리비": "mdi:clipboard-outline",
+        "입주자대표회의운": "mdi:account-group-outline",
+        "장기수선충당금": "mdi:hammer-wrench",
+        "청소비": "mdi:broom",
+        "커뮤니티사용료": "mdi:account-multiple-outline",
+        "커뮤니티시설유지": "mdi:account-group",
+        "홈네트워크": "mdi:network",
+        "TV수신료": "mdi:television-classic"
+    },
+    "energy_detail": {
+        "수도": "mdi:water",
+        "온수": "mdi:water-boiler",
+        "전기": "mdi:power-plug"
+    },
+    "energy_type": {
+        "열": "mdi:fire",
+        "전기": "mdi:currency-krw"
+    }
+}

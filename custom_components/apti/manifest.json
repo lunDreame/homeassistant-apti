@@ -9,7 +9,8 @@
     "iot_class": "local_polling",
     "issue_tracker": "https://github.com/lunDreame/homeassistant-apti/issues",
     "requirements": [
-        "beautifulsoup4"
+        "beautifulsoup4",
+        "aiofiles"
     ],
-    "version": "1.0.2"
+    "version": "1.0.3"
 }

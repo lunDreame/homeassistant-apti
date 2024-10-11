@@ -13,68 +13,69 @@ from homeassistant.components.sensor import SensorEntity, SensorEntityDescriptio
 
 from .coordinator import APTiDataUpdateCoordinator
 from .entity import APTiDevice
-from .helper import find_value_by_condition
+from .helper import find_value_by_condition, get_icon
 
 
 @dataclass(kw_only=True)
 class APTiSensorEntityDescription(SensorEntityDescription):
     """Describes APT.i sensor entity."""
 
-    format_id: str
-    chepter_name: str
+    format_id: str     # unique_id
+    chepter_name: str  # device_info
     exists_fn: Callable[..., bool] = lambda _: True
+    icon_fn: Callable[..., str] = lambda _: None
+    trans_ph: Callable[..., dict] = lambda _: {}
     value_fn: Callable[..., datetime | str]
-    extra_attributes: Callable[..., dict] = lambda _: {}
 
 
 SENSORS: tuple[APTiSensorEntityDescription, ...] = (
     APTiSensorEntityDescription(
         key="maint_item",
         translation_key="maint_item",
-        translation_placeholders=lambda key: {"category": key["항목"]},
-        format_id=lambda key: f"{key['항목']}_maint_item",
+        native_unit_of_measurement="원",
+        format_id=lambda k: f"{k['항목']}_maint_item",
         chepter_name="관리비",
-        unit_of_measurement = "원",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("당월")),
-        extra_attributes=lambda value: value,
+        icon_fn=lambda c, k: get_icon(c, k["항목"]),
+        trans_ph=lambda k: {"category": k["항목"]},
+        value_fn=lambda v: find_value_by_condition(v, lambda k: k.startswith("당월")),
     ),
     APTiSensorEntityDescription(
         key="maint_payment",
+        icon="mdi:currency-krw",
         translation_key="maint_payment",
+        native_unit_of_measurement="원",
         format_id="maint_payment",
         chepter_name="관리비",
-        unit_of_measurement = "원",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("납부할 금액")),
-        extra_attributes=lambda value: value,
+        value_fn=lambda v: find_value_by_condition(v, lambda k: k.startswith("납부할 금액")),
     ),
     APTiSensorEntityDescription(
         key="energy_usage",
+        icon="mdi:flash",
         translation_key="energy_usage",
+        native_unit_of_measurement="원",
         format_id="energy_usage",
         chepter_name="에너지",
-        unit_of_measurement = "원",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.endswith("사용")),
-        extra_attributes=lambda value: value,
+        value_fn=lambda v: find_value_by_condition(v, lambda k: k.endswith("사용")),
     ),
     APTiSensorEntityDescription(
         key="energy_detail",
         translation_key="energy_detail",
-        translation_placeholders=lambda key: {"category": key["유형"]},
-        format_id=lambda key: f"{key['유형']}_energy_detail",
+        native_unit_of_measurement="",
+        format_id=lambda k: f"{k['유형']}_energy_detail",
         chepter_name="에너지",
-        unit_of_measurement = "",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("사용량")),
-        extra_attributes=lambda value: value,
+        icon_fn=lambda c, k: get_icon(c, k["유형"]),
+        trans_ph=lambda k: {"category": k["유형"]},
+        value_fn=lambda v: find_value_by_condition(v, lambda k: k.startswith("사용량")),
     ),
     APTiSensorEntityDescription(
         key="energy_type",
         translation_key="energy_type",
-        translation_placeholders=lambda key: {"category": key["유형"]},
-        format_id=lambda key: f"{key['유형']}_energy_type",
+        native_unit_of_measurement="원",
+        format_id=lambda k: f"{k['유형']}_energy_type",
         chepter_name="에너지",
-        unit_of_measurement = "원",
-        value_fn=lambda value: find_value_by_condition(value, lambda k: k.startswith("총액")),
-        extra_attributes=lambda value: value,
+        icon_fn=lambda c, k: get_icon(c, k["유형"]),
+        trans_ph=lambda k: {"category": k["유형"]},
+        value_fn=lambda v: find_value_by_condition(v, lambda k: k.startswith("총액")),
     ),
 )
 
@@ -114,19 +115,15 @@ class APTiSensor(APTiDevice, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator, entity_description)
         self.entity_description = entity_description
+        self._value = coordinator.data[self.description.key]
 
+        self._attr_extra_state_attributes = self._value
         self._attr_unique_id = self.description.format_id
-        self._attr_extra_state_attributes = self.description.extra_attributes(
-            coordinator.data[self.description.key]
-        )
-
-        self._attr_native_unit_of_measurement = self.description.unit_of_measurement
 
     @property
     def native_value(self) -> str:
         """Return the state of the sensor."""
-        value = self.coordinator.data[self.description.key]
-        return self.description.value_fn(value)
+        return self.description.value_fn(self._value)
 
 
 class APTiCategorySensor(APTiDevice, SensorEntity):
@@ -143,23 +140,16 @@ class APTiCategorySensor(APTiDevice, SensorEntity):
         self.category = category
         self.entity_description = entity_description
         
+        self._attr_extra_state_attributes = category
+        self._attr_translation_placeholders = self.description.trans_ph(category)
         self._attr_unique_id = self.description.format_id(category)
-        self._attr_extra_state_attributes = self.description.extra_attributes(
-            category
-        )
 
-        self._attr_native_unit_of_measurement = self.description.unit_of_measurement
-
+    async def async_added_to_hass(self) -> None:
+        """Called when added to Hass."""
+        self._attr_icon = await self.description.icon_fn(self.description.key, self.category)
+        await super().async_added_to_hass()
+    
     @property
     def native_value(self) -> datetime | str:
         """Return the state of the sensor."""
         return self.description.value_fn(self.category)
-
-    @property
-    def translation_placeholders(self) -> dict[str, str] | None:
-        """Return the translation placeholders."""
-        if self.category:
-            return self.description.translation_placeholders(
-                self.category
-            )
-        return None
