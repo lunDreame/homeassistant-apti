@@ -20,7 +20,15 @@
         "커뮤니티사용료": "mdi:account-multiple-outline",
         "커뮤니티시설유지": "mdi:account-group",
         "홈네트워크": "mdi:network",
-        "TV수신료": "mdi:television-classic"
+        "TV수신료": "mdi:television-classic",
+        "승강기전기료": "mdi:elevator-passenger-outline",
+        "기본열요금": "mdi:fire",
+        "세대급탕비": "mdi:water-boiler",
+        "관리비차감": "mdi:minus-circle-outline",
+        "홈네트워크유지비": "mdi:network-settings",
+        "선관위운영비": "mdi:ballot-outline",
+        "입대의운영비": "mdi:account-group-outline",
+        "장기수선비": "mdi:tools"
     },
     "energy_detail": {
         "수도": "mdi:water",
