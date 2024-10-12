@@ -1,0 +1,17 @@
+type: custom:apexcharts-card
+header:
+  show: true
+  title: 월간 관리비 추이
+graph_span: 30d
+apex_config:
+  chart:
+    type: line
+  stroke:
+    width: 2
+  yaxis:
+    min: 0
+    max: 300000
+series:
+  - entity: sensor.gwanribi_maintenance_payment_amount
+    name: 총 관리비
+    color: '#ff9800'

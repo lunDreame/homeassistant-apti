@@ -1,0 +1,32 @@
+type: horizontal-stack
+cards:
+  - type: gauge
+    name: 세대 전기료
+    entity: sensor.gwanribi_sedaejeongiryo
+    min: 0
+    max: 1000
+    severity:
+      green: 0
+      yellow: 500
+      red: 800
+    needle: true
+  - type: gauge
+    name: 세대 수도료
+    entity: sensor.gwanribi_sedaesudoryo
+    min: 0
+    max: 1000
+    severity:
+      green: 0
+      yellow: 400
+      red: 600
+    needle: true
+  - type: gauge
+    name: 승강기 전기료
+    entity: sensor.gwanribi_seungganggijeongi
+    min: 0
+    max: 1000
+    severity:
+      green: 0
+      yellow: 400
+      red: 800
+    needle: true

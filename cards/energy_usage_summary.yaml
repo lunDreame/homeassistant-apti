@@ -1,0 +1,28 @@
+type: custom:mini-graph-card
+name: 에너지 사용량 추이
+entities:
+  - entity: sensor.eneoji_jeongi_usage
+    name: 전기
+    unit: kWh
+  - entity: sensor.eneoji_onsu_usage
+    name: 온수
+    unit: m³
+  - entity: sensor.eneoji_sudo_usage
+    name: 수도
+    unit: L
+line_color:
+  - '#4caf50'
+  - '#2196f3'
+  - '#f44336'
+show:
+  fill: true
+  points: true
+  legend: true
+hours_to_show: 72
+points_per_hour: 1
+animate: true
+style: |
+  ha-card {
+    border-radius: 15px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  }

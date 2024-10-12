@@ -1,0 +1,80 @@
+type: grid
+title: 관리 & 에너지 상태 요약
+columns: 2
+square: false
+cards:
+  - type: custom:button-card
+    entity: sensor.gwanribi_geonmulboheomryo
+    name: 건물보험료
+    icon: mdi:home-lock
+    layout: icon_state
+    styles:
+      card:
+        - background-color: '#ff9800'
+        - border-radius: 10px
+        - padding: 15px
+      name:
+        - color: white
+        - font-weight: bold
+      state:
+        - color: white
+  - type: custom:button-card
+    entity: sensor.gwanribi_gyeongbibi
+    name: 경비비
+    icon: mdi:security
+    layout: icon_state
+    styles:
+      card:
+        - background-color: '#3f51b5'
+        - border-radius: 10px
+        - padding: 15px
+      name:
+        - color: white
+        - font-weight: bold
+      state:
+        - color: white
+  - type: custom:button-card
+    entity: sensor.gwanribi_gongdongjeongiryo
+    name: 공동 전기료
+    icon: mdi:lightbulb-group
+    layout: icon_state
+    styles:
+      card:
+        - background-color: '#4caf50'
+        - border-radius: 10px
+        - padding: 15px
+      name:
+        - color: white
+        - font-weight: bold
+      state:
+        - color: white
+  - type: custom:button-card
+    entity: sensor.gwanribi_sedaesudoryo
+    name: 수도 사용료
+    icon: mdi:water-pump
+    layout: icon_state
+    styles:
+      card:
+        - background-color: '#2196f3'
+        - border-radius: 10px
+        - padding: 15px
+      name:
+        - color: white
+        - font-weight: bold
+      state:
+        - color: white
+  - type: custom:button-card
+    entity: sensor.gwanribi_seungganggijeongi
+    name: 승강기 전기
+    icon: mdi:elevator-passenger-outline
+    layout: icon_state
+    styles:
+      card:
+        - background-color: '#673ab7'
+        - border-radius: 10px
+        - padding: 15px
+      name:
+        - color: white
+        - font-weight: bold
+      state:
+        - color: white
