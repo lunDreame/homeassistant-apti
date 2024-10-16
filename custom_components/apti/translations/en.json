@@ -29,7 +29,7 @@
                 "name": "Maintenance Payment Amount"
             },
             "energy_usage": {
-                "name": "Total Energy Usage"
+                "name": "Total Energy Use"
             },
             "energy_detail": {
                 "name": "{category} Usage"

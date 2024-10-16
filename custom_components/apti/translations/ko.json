@@ -29,7 +29,7 @@
                 "name": "관리비 납부 금액"
             },
             "energy_usage": {
-                "name": "에너지 전체 사용량"
+                "name": "에너지 사용 총액"
             },
             "energy_detail": {
                 "name": "{category} 사용량"

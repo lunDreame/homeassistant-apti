@@ -6,11 +6,11 @@
     ],
     "config_flow": true,
     "documentation": "https://github.com/lunDreame/homeassistant-apti",
-    "iot_class": "local_polling",
+    "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/lunDreame/homeassistant-apti/issues",
     "requirements": [
-        "beautifulsoup4",
-        "aiofiles"
+        "aiofiles==24.1.0",
+        "beautifulsoup4==4.12.3"
     ],
-    "version": "1.0.3"
+    "version": "1.0.4"
 }

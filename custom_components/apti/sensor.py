@@ -143,11 +143,17 @@ class APTiCategorySensor(APTiDevice, SensorEntity):
         self._attr_extra_state_attributes = category
         self._attr_translation_placeholders = self.description.trans_ph(category)
         self._attr_unique_id = self.description.format_id(category)
-
+    
     async def async_added_to_hass(self) -> None:
         """Called when added to Hass."""
-        self._attr_icon = await self.description.icon_fn(self.description.key, self.category)
+        await self.async_set_icon()
         await super().async_added_to_hass()
+    
+    async def async_set_icon(self) -> None:
+        """Update the icon asynchronously."""
+        self._attr_icon = await self.description.icon_fn(
+            self.description.key, self.category
+        )
     
     @property
     def native_value(self) -> datetime | str:

@@ -27,7 +27,7 @@ class APTiEnergy:
     """APT.i energy class."""
 
     item_usage: dict = field(default_factory=dict)    # 에너지 항목(사용량)
-    detail_usage: list = field(default_factory=list)  # 에너지 항목(상세 사용량)  
+    detail_usage: list = field(default_factory=list)  # 에너지 항목(상세 사용량)
     type_usage: list = field(default_factory=list)    # 에너지 종류(사용량)
 
 
@@ -79,18 +79,27 @@ class APTiAPI:
     async def login(self):
         """Login to APT.i."""
         url = "https://www.apti.co.kr/member/login_ok.asp"
-        headers = {"content-type": "application/x-www-form-urlencoded"}
+        headers = {
+            "content-type": "application/x-www-form-urlencoded",
+            "origin": "https://www.apti.co.kr",
+            "referer": "https://www.apti.co.kr/apti/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
         data = {
             "pageGubu": "I",
             "pageMode": "I",
             "pwd": self.password,
             "id": self.id,
             "gubu": "H",
+            "mpostYn": "N",
+            "memUpHpYN": "N",
+            "outerJoinRoute": "H",
             "hp_id": self.id,
             "hp_pwd": self.password,
         }
         if not is_phone_number(self.id):
             data["gubu"] = "I"
+            data["outerJoinRoute"] = "I"
             data["login_id"] = data.pop("hp_id")
             data["login_pwd"] = data.pop("hp_pwd")
 
@@ -98,7 +107,7 @@ class APTiAPI:
             async with self.session.post(url, headers=headers, data=data, timeout=5) as response:
                 if response.status != 200:
                     return
-
+                
                 cookies = ' '.join(response.headers.getall("Set-Cookie", []))
                 se_token = re.search(r'se%5Ftoken=([^;]+)', cookies)
                 apti_codesave = re.search(r'apti=codesave=([^;]+)', cookies)
@@ -112,13 +121,18 @@ class APTiAPI:
                 
                 if se_token and apti_codesave:
                     await self.get_subpage_info()
+        except TimeoutError:
+            LOGGER.error("APTi login request timed out.")
         except Exception as ex:
             LOGGER.error(f"Exception during APTi login: {ex}")
 
     async def get_subpage_info(self):
         """Get the sub page info."""
         url = "https://www.apti.co.kr/apti/subpage/?menucd=ACAI"
-        headers = {"cookie": f"se%5Ftoken={self.se_token}"}
+        headers = {
+            "cookie": f"se%5Ftoken={self.se_token}",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
 
         try:
             async with self.session.post(url, headers=headers, timeout=5) as response:
@@ -151,7 +165,10 @@ class APTiAPI:
     async def get_maint_fee_item(self):
         """Get the maintenance fee items."""
         url = "https://www.apti.co.kr/apti/manage/manage_dataJquery.asp?ajaxGubu=L&orderType=&chkType=ADD"
-        headers = {"cookie": f"se%5Ftoken={self.se_token}"}
+        headers = {
+            "cookie": f"se%5Ftoken={self.se_token}",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
         params = {
             "listNum": "20",
             "manageDataTot": "23",
@@ -192,7 +209,10 @@ class APTiAPI:
     async def get_maint_fee_payment(self):
         """Get the payment of maintenance fees."""
         url = "https://www.apti.co.kr/apti/manage/manage_cost.asp?menucd=ACAI"
-        headers = {"cookie": f"se%5Ftoken={self.se_token}"}
+        headers = {
+            "cookie": f"se%5Ftoken={self.se_token}",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
 
         try:
             async with self.session.get(url, headers=headers, timeout=5) as response:
@@ -210,7 +230,7 @@ class APTiAPI:
                         soup, "div.endBox span", "납부 마감일을 찾을 수 없습니다."
                     ),
                     f"{target_month}월분 부과 금액": get_text_or_log(
-                        soup.find("dt", text=f"{target_month}월분 부과 금액"), 
+                        soup.find("dt", text=f"{target_month}월분 부과 금액"),
                         None, f"{target_month}월분 부과 금액을 찾을 수 없습니다.", "find_next_sibling"
                     ),
                     "납부할 금액": get_text_or_log(
@@ -236,7 +256,10 @@ class APTiAPI:
     async def get_energy_category(self):
         """Get the usage by energy category."""
         url = "https://www.apti.co.kr/apti/manage/manage_energy.asp?menucd=ACAD"
-        headers = {"cookie": f"se%5Ftoken={self.se_token}"}
+        headers = {
+            "cookie": f"se%5Ftoken={self.se_token}",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
 
         try:
             async with self.session.get(url, headers=headers, timeout=5) as response:
@@ -264,7 +287,7 @@ class APTiAPI:
                 self.data.energy.item_usage.update({
                     month: total_usage,
                     "비교": average_comparison,
-                    **energy_breakdown  
+                    **energy_breakdown
                     #{
                     #    "전기": "67%",
                     #    "수도": "18%",
@@ -272,7 +295,7 @@ class APTiAPI:
                     #}
                 })
 
-                energy_boxes = soup.find_all("div", class_="engBox")    
+                energy_boxes = soup.find_all("div", class_="engBox")
                 for box in energy_boxes:
                     energy_type = box.find("h3").text.strip()
                     usage = box.find("li").find("strong").text.strip()
@@ -291,7 +314,10 @@ class APTiAPI:
     async def get_energy_type(self):
         """Get the usage by energy type."""
         url = "https://www.apti.co.kr/apti/manage/manage_energyGogi.asp?menucd=ACAE"
-        headers = {"cookie": f"se%5Ftoken={self.se_token}"}
+        headers = {
+            "cookie": f"se%5Ftoken={self.se_token}",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+        }
 
         try:
             async with self.session.get(url, headers=headers, timeout=5) as response:

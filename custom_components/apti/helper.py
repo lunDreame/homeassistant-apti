@@ -26,12 +26,14 @@ def get_text_or_log(
     return ""
 
 def find_value_by_condition(data_dict: dict, condition) -> Any | None:
+    """Finds value in a dictionary based on a condition."""
     for key, value in data_dict.items():
         if condition(key):
             return value
     return None
 
 def is_phone_number(id_value: str) -> bool:
+    """Checks if a string is in phone number format (010 followed by 8 digits)"""
     phone_number_pattern = r'^010\d{8}$'
     return bool(re.match(phone_number_pattern, id_value))
 
@@ -40,6 +42,7 @@ async def get_icon(
     key: str,
     json_file_path: str = "custom_components/apti/icons/icon.json"
 ) -> str:
+    """Asynchronously retrieves an icon from a JSON file using category and key."""
     try:
         async with aiofiles.open(json_file_path, "r", encoding="utf-8") as file:
             content = await file.read()
@@ -53,6 +56,9 @@ async def get_icon(
         else:
             LOGGER.warning(f"Category '{category}' not found in icon data.")
         return None
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        LOGGER.error(f"Error reading or decoding '{json_file_path}': {e}")
+    except FileNotFoundError as e:
+        LOGGER.error(f"File not found: '{json_file_path}': {e}")
+        return None
+    except json.JSONDecodeError as e:
+        LOGGER.error(f"Error decoding JSON from '{json_file_path}': {e}")
         return None
