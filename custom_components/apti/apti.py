@@ -47,7 +47,7 @@ class APTiData:
         """Remove a callback"""
         self.callbacks.discard(callback)
     
-    def update_callback(self):
+    async def update_callback(self):
         """Updates registered callbacks."""
         for callback in self.callbacks:
             if callable(callback):
@@ -80,7 +80,6 @@ class APTiAPI:
         """Login to APT.i."""
         url = "https://www.apti.co.kr/member/login_ok.asp"
         headers = {
-            "content-type": "application/x-www-form-urlencoded",
             "origin": "https://www.apti.co.kr",
             "referer": "https://www.apti.co.kr/apti/",
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
@@ -131,11 +130,12 @@ class APTiAPI:
         url = "https://www.apti.co.kr/apti/subpage/?menucd=ACAI"
         headers = {
             "cookie": f"se%5Ftoken={self.se_token}",
+            "referer": "https://www.apti.co.kr/apti/Default.asp?",
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
         }
 
         try:
-            async with self.session.post(url, headers=headers, timeout=5) as response:
+            async with self.session.get(url, headers=headers, timeout=5) as response:
                 if response.status != 200:
                     return
 
@@ -167,18 +167,22 @@ class APTiAPI:
         url = "https://www.apti.co.kr/apti/manage/manage_dataJquery.asp?ajaxGubu=L&orderType=&chkType=ADD"
         headers = {
             "cookie": f"se%5Ftoken={self.se_token}",
-            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+            "origin": "https://www.apti.co.kr",
+            "referer": "https://www.apti.co.kr/apti/manage/manage_cost.asp?menucd=ACAI",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+            "x-requested-with": "XMLHttpRequest",
         }
-        params = {
-            "listNum": "20",
-            "manageDataTot": "23",
+        data = {
+            "listNum": "30",
+            "manageDataTot": "22",
             "code": self.apti_codesave,
             "dongho": self.dong_ho,
             "billym": format_date_two_months_ago(),
+            "fix_code": self.apti_codesave,
         }
 
         try:
-            async with self.session.get(url, headers=headers, params=params, timeout=5) as response:
+            async with self.session.post(url, headers=headers, data=data, timeout=5) as response:
                 if response.status != 200:
                     return
 
@@ -192,7 +196,7 @@ class APTiAPI:
                     row = link.find_parent("td").parent
                     category = link.text
                     current_month, previous_month, change = [
-                        td.text.strip().replace(",", "") for td in row.find_all("td")[1:4]
+                        td.text.strip() for td in row.find_all("td")[1:4]
                     ]
                     if all([category, current_month, previous_month, change]):
                         self.data.maint.item.append({
@@ -211,6 +215,7 @@ class APTiAPI:
         url = "https://www.apti.co.kr/apti/manage/manage_cost.asp?menucd=ACAI"
         headers = {
             "cookie": f"se%5Ftoken={self.se_token}",
+            "referer": "https://www.apti.co.kr/apti/subpage/?menucd=ACAI",
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
         }
 
@@ -230,25 +235,18 @@ class APTiAPI:
                         soup, "div.endBox span", "납부 마감일을 찾을 수 없습니다."
                     ),
                     f"{target_month}월분 부과 금액": get_text_or_log(
-                        soup.find("dt", text=f"{target_month}월분 부과 금액"),
-                        None, f"{target_month}월분 부과 금액을 찾을 수 없습니다.", "find_next_sibling"
+                        soup.find("dt", text=f"{target_month}월분 부과 금액"), None, f"{target_month}월분 부과 금액을 찾을 수 없습니다.", "find_next_sibling"
                     ),
                     "납부할 금액": get_text_or_log(
-                        soup.find("dt", text="납부하실 금액"), None, "납부할 금액을 찾을 수 없습니다.", "find_next_sibling"
+                        soup, ".costpayBox dd .costPay", "납부할 금액을 찾을 수 없습니다."
                     ),
                     "전년 동월 비교": get_text_or_log(
-                        soup, ".compaWrap li.compaBox .cost_txt p.price", "전년 동월 비교 금액을 찾을 수 없습니다."
+                        soup, ".compaBox .cost_txt .price", "전년 동월 비교 금액을 찾을 수 없습니다."
                     ),
                     "우리집 이번달 금액": get_text_or_log(
-                        soup, ".compaWrap li.compaBox .cost_ico.current p.t_2", "이번달 금액을 찾을 수 없습니다."
+                        soup, ".compaBox .cost_ico.current .t_2", "이번달 금액을 찾을 수 없습니다."
                     )
                 }
-                payment_span = soup.select_one("span.costPay")
-                if payment_span:
-                    cost_info["납부할 금액"] = payment_span.text.strip().replace(",", "")
-                else:
-                    LOGGER.warning("납부할 금액의 span 요소를 찾을 수 없습니다.")
-
                 self.data.maint.payment_amount.update(cost_info)
         except Exception as ex:
             LOGGER.error(f"An exception occurred while processing maintenance fee payment: {ex}")
@@ -271,7 +269,7 @@ class APTiAPI:
                 soup = BeautifulSoup(resp, "html.parser")
 
                 energy_top = soup.find("div", class_="energyTop")
-                total_usage = energy_top.find("strong", class_="data1").text.strip().replace(",", "")
+                total_usage = energy_top.find("strong", class_="data1").text.strip()
                 month = energy_top.find("span", class_="month").text.strip()
     
                 energy_data = soup.find("div", class_="energy_data")
@@ -299,7 +297,7 @@ class APTiAPI:
                 for box in energy_boxes:
                     energy_type = box.find("h3").text.strip()
                     usage = box.find("li").find("strong").text.strip()
-                    cost = box.find("li", class_="line").find_next_sibling("li").find("strong").text.strip().replace(",", "")
+                    cost = box.find("li", class_="line").find_next_sibling("li").find("strong").text.strip()
                     comparison = box.find("div", class_="txtBox").find("strong").text.strip()
         
                     self.data.energy.detail_usage.append({
@@ -328,40 +326,50 @@ class APTiAPI:
                 resp = raw_data.decode("EUC-KR")
                 soup = BeautifulSoup(resp, "html.parser")
 
-                electricity = soup.find("div", class_="billBox clearfix")
-                if electricity:
-                    electricity_info = {
-                        "유형": "전기",
-                        "총액": electricity.find("div", class_="enePay").text.strip().replace(",", "").replace("원", ""),
-                        "사용량": electricity.find("p", class_="eneDownTxt").text.split("(")[1].split(")")[0].strip(),
-                        "평균 사용량": electricity.find("p", class_="eneUpTxt").text.split("(")[1].split(")")[0].strip(),
-                        "비교": electricity.find("div", class_="energy_data date1").find("p", class_="txt").text,
-                    }
-
-                    details = electricity.find("div", class_="tbl_bill").find_all("tr")
-                    for row in details:
-                        cols = row.find_all("td")
-                        electricity_info[row.th.text.strip()] = cols[0].text.strip()
-                        if len(cols) > 1:
-                            electricity_info[row.find_all("th")[1].text.strip()] = cols[1].text.strip()
-
-                    self.data.energy.type_usage.append(electricity_info)
-
-                heat = soup.find_all("div", class_="billBox clearfix")[1]
-                if heat:
-                    heat_info = {
-                        "유형": "열",
-                        "총액": heat.find("div", class_="enePay").text.strip().replace(",", "").replace("원", ""),
-                        "비교": heat.find("div", class_="energy_data date1").find("p", class_="txt").text,
-                    }
-
-                    details = heat.find("div", class_="tbl_bill").find_all("tr")
-                    for row in details:
-                        cols = row.find_all("td")
-                        heat_info[row.th.text.strip()] = cols[0].text.strip()
-                        if len(cols) > 1:
-                            heat_info[row.find_all("th")[1].text.strip()] = cols[1].text.strip()
+                energy_boxes = soup.find_all("div", class_="billBox clearfix")
                 
-                    self.data.energy.type_usage.append(heat_info)
+                for box in energy_boxes:
+                    try:
+                        energy_title = box.find("h4", class_="eneTit").text.strip()
+                        energy_type = energy_title.replace("에너지", "").strip()
+                        
+                        energy_info = {
+                            "유형": energy_type
+                        }
+
+                        if pay_div := box.find("div", class_="enePay"):
+                            energy_info["총액"] = pay_div.text.strip().replace("원", "")
+
+                        if compare_div := box.find("div", class_="energy_data date1"):
+                            if compare_text := compare_div.find("p", class_="txt"):
+                                energy_info["비교"] = compare_text.text.strip()
+
+                        if usage_down := box.find("p", class_="eneDownTxt"):
+                            try:
+                                energy_info["사용량"] = usage_down.text.split("(")[1].split(")")[0].strip()
+                            except IndexError:
+                                LOGGER.debug(f"Could not parse usage for {energy_type}")
+
+                        if usage_up := box.find("p", class_="eneUpTxt"):
+                            try:
+                                energy_info["평균 사용량"] = usage_up.text.split("(")[1].split(")")[0].strip()
+                            except IndexError:
+                                LOGGER.debug(f"Could not parse average usage for {energy_type}")
+
+                        if details := box.find("div", class_="tbl_bill"):
+                            for row in details.find_all("tr"):
+                                ths = row.find_all("th")
+                                tds = row.find_all("td")
+                                
+                                for th, td in zip(ths, tds):
+                                    value = td.text.strip().replace("원", "")
+                                    energy_info[th.text.strip()] = value
+
+                        self.data.energy.type_usage.append(energy_info)
+                    
+                    except Exception as detail_ex:
+                        LOGGER.warning(f"Error processing energy box details: {detail_ex}")
+                        continue
+                    
         except Exception as ex:
             LOGGER.error(f"An exception occurred while processing energy usage type: {ex}")

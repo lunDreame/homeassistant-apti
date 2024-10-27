@@ -29,6 +29,8 @@ def find_value_by_condition(data_dict: dict, condition) -> Any | None:
     """Finds value in a dictionary based on a condition."""
     for key, value in data_dict.items():
         if condition(key):
+            if "," in value:
+                return value.replace(",", "")
             return value
     return None
 

@@ -28,7 +28,8 @@
         "홈네트워크유지비": "mdi:check-network",
         "선관위운영비": "mdi:ballot-outline",
         "입대의운영비": "mdi:account-group-outline",
-        "장기수선비": "mdi:tools"
+        "장기수선비": "mdi:tools",
+        "공동난방비": "mdi:fire"
     },
     "energy_detail": {
         "수도": "mdi:water",

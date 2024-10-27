@@ -14,7 +14,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the APT.i integration."""
     coordinator = APTiDataUpdateCoordinator(hass, entry)
 
-    await coordinator.api.login()
+    #await coordinator.api.login()
     await coordinator.async_config_entry_first_refresh()
     
     async_track_time_interval(

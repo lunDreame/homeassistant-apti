@@ -30,16 +30,16 @@ class APTiDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _update_maint_energy(self, _=None):
         """Fetch maintenance/energy data from the API."""
-        if isinstance(_, datetime):
-            LOGGER.info("Update maintenance/energy data.")
-            await self.api.login()
+        #if isinstance(_, datetime):
+        #    LOGGER.info("Update maintenance/energy data.")
+        await self.api.login()
         await asyncio.gather(
             self.api.get_maint_fee_item(),
             self.api.get_maint_fee_payment(),
             self.api.get_energy_category(),
             self.api.get_energy_type()
         )
-        self.api.data.update_callback()
+        await self.api.data.update_callback()
 
     def data_to_entities(self) -> dict[str, dict | list]:
         """Convert APT.i data to entities."""
