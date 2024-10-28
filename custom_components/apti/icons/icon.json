@@ -31,7 +31,10 @@
         "장기수선비": "mdi:tools",
         "공동난방비": "mdi:fire",
         "소방유지대행료": "mdi:fire-truck",
-        "특별수선충당금": "mdi:cash-plus"
+        "특별수선충당금": "mdi:cash-plus",
+        "제경비": "mdi:finance",
+        "전기안전대행료": "mdi:shield-electric",
+        "승강기유지대행료": "mdi:elevator"
     },
     "energy_detail": {
         "수도": "mdi:water",
