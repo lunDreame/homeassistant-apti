@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 import re
 
@@ -47,7 +48,7 @@ class APTiData:
         """Remove a callback"""
         self.callbacks.discard(callback)
     
-    async def update_callback(self):
+    def update_callback(self):
         """Updates registered callbacks."""
         for callback in self.callbacks:
             if callable(callback):
@@ -348,13 +349,13 @@ class APTiAPI:
                             try:
                                 energy_info["사용량"] = usage_down.text.split("(")[1].split(")")[0].strip()
                             except IndexError:
-                                LOGGER.debug(f"Could not parse usage for {energy_type}")
+                                LOGGER.warning(f"Could not parse usage for {energy_type}")
 
                         if usage_up := box.find("p", class_="eneUpTxt"):
                             try:
                                 energy_info["평균 사용량"] = usage_up.text.split("(")[1].split(")")[0].strip()
                             except IndexError:
-                                LOGGER.debug(f"Could not parse average usage for {energy_type}")
+                                LOGGER.warning(f"Could not parse average usage for {energy_type}")
 
                         if details := box.find("div", class_="tbl_bill"):
                             for row in details.find_all("tr"):

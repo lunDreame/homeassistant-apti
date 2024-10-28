@@ -29,7 +29,9 @@
         "선관위운영비": "mdi:ballot-outline",
         "입대의운영비": "mdi:account-group-outline",
         "장기수선비": "mdi:tools",
-        "공동난방비": "mdi:fire"
+        "공동난방비": "mdi:fire",
+        "소방유지대행료": "mdi:fire-truck",
+        "특별수선충당금": "mdi:cash-plus"
     },
     "energy_detail": {
         "수도": "mdi:water",

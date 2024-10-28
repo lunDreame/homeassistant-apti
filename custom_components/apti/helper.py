@@ -51,6 +51,7 @@ async def get_icon(
             data = json.loads(content)
         
         if category in data:
+            key = re.sub(r"\d+동", "", key).strip()
             icon = data[category].get(key, None)
             if icon is None:
                 LOGGER.warning(f"Icon for key '{key}' in category '{category}' not found.")
