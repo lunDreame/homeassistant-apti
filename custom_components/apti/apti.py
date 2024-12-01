@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 
 from .helper import get_text_or_log, is_phone_number
-from .until import format_date_two_months_ago, get_target_month
+from .until import format_date_target_months_ago, get_target_month
 from .const import LOGGER
 
 
@@ -75,6 +75,7 @@ class APTiAPI:
         self.se_token: str | None = None
         self.apti_codesave: str | None = None
         self.dong_ho: str | None = None
+        self.target_month: int = 2
         self.data = APTiData()
     
     async def login(self):
@@ -178,10 +179,10 @@ class APTiAPI:
             "manageDataTot": "22",
             "code": self.apti_codesave,
             "dongho": self.dong_ho,
-            "billym": format_date_two_months_ago(),
+            "billym": format_date_target_months_ago(target=self.target_month),
             "fix_code": self.apti_codesave,
         }
-
+        
         try:
             async with self.session.post(url, headers=headers, data=data, timeout=5) as response:
                 if response.status != 200:
@@ -228,8 +229,13 @@ class APTiAPI:
                 raw_data = await response.content.read()
                 resp = raw_data.decode("EUC-KR")
                 soup = BeautifulSoup(resp, "html.parser")
+                
+                target_month = get_target_month(target=self.target_month)
+                monthly_cost_element = soup.find("dt", text=f"{target_month}월분 부과 금액")
 
-                target_month = get_target_month()
+                if monthly_cost_element is None:
+                    self.target_month = 1
+                    target_month = get_target_month(target=self.target_month)
 
                 cost_info = {
                     "납부 마감일": get_text_or_log(
