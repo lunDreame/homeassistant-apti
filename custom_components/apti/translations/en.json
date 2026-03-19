@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect APTi account",
+        "description": "Enter your APTi mobile login credentials.",
+        "data": {
+          "username": "ID (phone number)",
+          "password": "Password",
+          "scan_interval": "Refresh interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid ID or password.",
+      "cannot_connect": "Cannot connect to APTi server.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "APTi options",
+        "data": {
+          "scan_interval": "Refresh interval (minutes)"
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "APTi 계정 연결",
+        "description": "아파트아이 계정(휴대폰 로그인)을 입력하세요.",
+        "data": {
+          "username": "아이디(휴대폰번호)",
+          "password": "비밀번호",
+          "scan_interval": "갱신 주기(분)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "아이디 또는 비밀번호가 올바르지 않습니다.",
+      "cannot_connect": "아파트아이 서버에 연결할 수 없습니다.",
+      "unknown": "알 수 없는 오류가 발생했습니다."
+    },
+    "abort": {
+      "already_configured": "이미 추가된 계정입니다."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "APTi 옵션",
+        "data": {
+          "scan_interval": "갱신 주기(분)"
+        }
+      }
+    }
+  }
+}
+
