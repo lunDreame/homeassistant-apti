@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers import dt as dt_util
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import APTiApiError, APTiAuthError, APTiClient
@@ -152,4 +152,3 @@ class APTiDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if isinstance(account_v3_detail, dict):
             merged.update(account_v3_detail)
         return merged
-

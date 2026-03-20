@@ -171,3 +171,4 @@ poetry.toml
 pyrightconfig.json
 
 analysis
+.DS_Store

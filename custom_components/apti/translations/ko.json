@@ -6,8 +6,7 @@
         "description": "아파트아이 앱 로그인 정보를 입력하세요.",
         "data": {
           "username": "아이디(휴대폰번호)",
-          "password": "비밀번호",
-          "scan_interval": "갱신 주기(분)"
+          "password": "비밀번호"
         }
       }
     },

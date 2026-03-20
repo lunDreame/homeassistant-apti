@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -14,23 +15,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import APTiApiError, APTiAuthError, APTiClient
 from .const import DEFAULT_SCAN_INTERVAL_MINUTES, DOMAIN
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_USERNAME): str,
-        vol.Required(CONF_PASSWORD): str,
-        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL_MINUTES): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=120)
-        ),
-    }
-)
-
-STEP_OPTIONS_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL_MINUTES): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=120)
-        ),
-    }
-)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def _validate_login(
@@ -42,10 +27,31 @@ async def _validate_login(
         data[CONF_USERNAME],
         data[CONF_PASSWORD],
     )
-    await client.async_login(force=True)
-    info = await client.async_get_user_information_v2()
-    if not isinstance(info, dict):
-        raise APTiApiError("Invalid account payload")
+    login_payload = await client.async_login(force=True)
+
+    info: dict[str, Any] | None = None
+
+    try:
+        info_v2 = await client.async_get_user_information_v2()
+    except APTiApiError as err:
+        _LOGGER.debug("APTi v2 profile lookup failed during config validation: %s", err)
+        info_v2 = None
+    if isinstance(info_v2, dict):
+        info = info_v2
+
+    if info is None:
+        info_v3 = await client.async_get_user_information_v3()
+        if isinstance(info_v3, dict):
+            info = info_v3
+
+    if info is None:
+        info_v3_detail = await client.async_get_user_information_detail_v3()
+        if isinstance(info_v3_detail, dict):
+            info = info_v3_detail
+
+    if info is None:
+        info = {"userId": login_payload.get("userId") or data[CONF_USERNAME]}
+
     return data, info
 
 
@@ -81,7 +87,8 @@ class APTiConfigFlow(ConfigFlow, domain=DOMAIN):
                 data, info = await _validate_login(self.hass, user_input)
             except APTiAuthError:
                 errors["base"] = "invalid_auth"
-            except APTiApiError:
+            except APTiApiError as err:
+                _LOGGER.warning("APTi login validation failed: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:
                 errors["base"] = "unknown"
@@ -95,13 +102,15 @@ class APTiConfigFlow(ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_USERNAME: data[CONF_USERNAME],
                         CONF_PASSWORD: data[CONF_PASSWORD],
-                    },
-                    options={CONF_SCAN_INTERVAL: data[CONF_SCAN_INTERVAL]},
+                    }
                 )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=STEP_USER_DATA_SCHEMA,
+            data_schema=vol.Schema({
+                vol.Required(CONF_USERNAME): str,
+                vol.Required(CONF_PASSWORD): str,
+            }),
             errors=errors,
         )
 
@@ -117,20 +126,15 @@ class APTiOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        default_interval = self._config_entry.options.get(
-            CONF_SCAN_INTERVAL,
-            self._config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_MINUTES),
-        )
-
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_SCAN_INTERVAL, 
+                    default=self._config_entry.options.get(
                         CONF_SCAN_INTERVAL,
-                        default=int(default_interval),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=120)),
-                }
-            ),
+                        DEFAULT_SCAN_INTERVAL_MINUTES,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=10, max=120)),
+            }),
         )
-

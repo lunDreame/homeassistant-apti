@@ -10,7 +10,6 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_SCAN_INTERVAL,
-    CURRENCY_KRW,
     PERCENTAGE,
     UnitOfArea,
     UnitOfTime,
@@ -20,7 +19,18 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DEFAULT_SCAN_INTERVAL_MINUTES, DOMAIN, PAYMENT_STATE_CODES
 from .coordinator import APTiDataUpdateCoordinator
-from .entity import AptiCoordinatorEntity, slugify
+from .entity import (
+    AptiCoordinatorEntity,
+    DEVICE_ACCOUNT,
+    DEVICE_ENERGY,
+    DEVICE_MANAGEMENT_FEE,
+    DEVICE_PARKING,
+    DEVICE_PAYMENT,
+    DEVICE_SYSTEM,
+    slugify,
+)
+
+CURRENCY_KRW = "KRW"
 
 
 def _parse_yyyymmdd(value: str | None) -> date | None:
@@ -35,8 +45,9 @@ def _parse_yyyymmdd(value: str | None) -> date | None:
 def _safe_float(value: Any) -> float | None:
     if value is None:
         return None
+    normalized = str(value).replace(",", "")
     try:
-        return float(value)
+        return float(normalized)
     except (TypeError, ValueError):
         return None
 
@@ -44,10 +55,18 @@ def _safe_float(value: Any) -> float | None:
 def _safe_int(value: Any) -> int | None:
     if value is None:
         return None
+    normalized = str(value).replace(",", "")
     try:
-        return int(float(value))
+        return int(float(normalized))
     except (TypeError, ValueError):
         return None
+
+
+def _safe_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _get_latest_payment_row(data: dict[str, Any]) -> dict[str, Any] | None:
@@ -67,6 +86,47 @@ def _get_latest_payment_row(data: dict[str, Any]) -> dict[str, Any] | None:
     )
 
 
+def _management_detail_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
+    detail = data.get("management_fee", {}).get("detail", [])
+    if not isinstance(detail, list):
+        return []
+    return [item for item in detail if isinstance(item, dict)]
+
+
+def _find_management_detail_item(data: dict[str, Any], item_no: str) -> dict[str, Any] | None:
+    for item in _management_detail_rows(data):
+        if str(item.get("itemNo") or "") == item_no:
+            return item
+    return None
+
+
+def _parking_visit_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
+    cars = data.get("parking_visit", {}).get("carListResDtoList", [])
+    if not isinstance(cars, list):
+        return []
+    return [car for car in cars if isinstance(car, dict)]
+
+
+def _pick_dynamic_value_key(payload: dict[str, Any], preferred: tuple[str, ...]) -> str | None:
+    for key in preferred:
+        if payload.get(key) is not None:
+            return key
+
+    for key, value in payload.items():
+        if key in {"title", "itemName", "name"}:
+            continue
+        if isinstance(value, (str, int, float)) and value not in ("", None):
+            return key
+    return None
+
+
+def _pick_scalar_value(payload: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if payload.get(key) is not None:
+            return payload.get(key)
+    return None
+
+
 @dataclass(slots=True)
 class AptiSensorDescription:
     """Definition for simple static sensors."""
@@ -77,15 +137,97 @@ class AptiSensorDescription:
     native_unit_of_measurement: str | None = None
     device_class: SensorDeviceClass | None = None
     icon: str | None = None
-    attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    device_key: str = DEVICE_SYSTEM
+
+
+@dataclass(frozen=True, slots=True)
+class AptiParkingVisitFieldDescription:
+    """Definition for parking visit detail sensor."""
+
+    key: str
+    name: str
+    source_keys: tuple[str, ...]
+    icon: str | None = None
+    native_unit_of_measurement: str | None = None
+    device_class: SensorDeviceClass | None = None
+
+
+PARKING_VISIT_FIELDS: tuple[AptiParkingVisitFieldDescription, ...] = (
+    AptiParkingVisitFieldDescription(
+        key="car_no",
+        name="차량번호",
+        source_keys=("carNoInformation",),
+        icon="mdi:car-info",
+    ),
+    AptiParkingVisitFieldDescription(
+        key="visit_date",
+        name="방문일",
+        source_keys=("visitDate",),
+        icon="mdi:calendar",
+    ),
+    AptiParkingVisitFieldDescription(
+        key="in_date",
+        name="입차일시",
+        source_keys=("carInDate",),
+        icon="mdi:car-arrow-right",
+    ),
+    AptiParkingVisitFieldDescription(
+        key="out_date",
+        name="출차일시",
+        source_keys=("carOutDate",),
+        icon="mdi:car-arrow-left",
+    ),
+    AptiParkingVisitFieldDescription(
+        key="parked_minutes",
+        name="주차시간",
+        source_keys=("parkedTimeLong", "parkedTime"),
+        icon="mdi:car-clock",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+    ),
+    AptiParkingVisitFieldDescription(
+        key="discount_minutes",
+        name="할인시간",
+        source_keys=("discountTime",),
+        icon="mdi:ticket-percent",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+    ),
+    AptiParkingVisitFieldDescription(
+        key="calc_minutes",
+        name="정산시간",
+        source_keys=("calcTime",),
+        icon="mdi:calculator-variant-outline",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+    ),
+    AptiParkingVisitFieldDescription(
+        key="visit_type",
+        name="방문유형",
+        source_keys=("visitType",),
+        icon="mdi:card-account-details-outline",
+    ),
+)
 
 
 STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
+    AptiSensorDescription(
+        key="account_user_id",
+        name="회원 ID",
+        icon="mdi:account",
+        device_key=DEVICE_ACCOUNT,
+        value_fn=lambda d: _safe_text(d.get("account", {}).get("userId")),
+    ),
+    AptiSensorDescription(
+        key="account_apt_code",
+        name="단지 코드",
+        icon="mdi:identifier",
+        device_key=DEVICE_ACCOUNT,
+        value_fn=lambda d: _safe_text(d.get("account", {}).get("code")),
+    ),
     AptiSensorDescription(
         key="mgmt_month_fee",
         name="당월 관리비",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_MANAGEMENT_FEE,
         value_fn=lambda d: _safe_int(d.get("manage_home", {}).get("monthFee")),
     ),
     AptiSensorDescription(
@@ -93,6 +235,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="전월 관리비",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_MANAGEMENT_FEE,
         value_fn=lambda d: _safe_int(d.get("manage_home", {}).get("bfMonthFee")),
     ),
     AptiSensorDescription(
@@ -100,6 +243,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="납부 대상 금액",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_MANAGEMENT_FEE,
         value_fn=lambda d: _safe_int(d.get("manage_home", {}).get("bfDueFee")),
     ),
     AptiSensorDescription(
@@ -107,6 +251,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="총 할인 금액",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_MANAGEMENT_FEE,
         value_fn=lambda d: _safe_int(
             d.get("management_fee", {}).get("discount", {}).get("discountFee")
         ),
@@ -115,12 +260,14 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         key="mgmt_bill_month",
         name="청구월",
         icon="mdi:calendar-month",
-        value_fn=lambda d: d.get("manage_home", {}).get("billYm"),
+        device_key=DEVICE_MANAGEMENT_FEE,
+        value_fn=lambda d: _safe_text(d.get("manage_home", {}).get("billYm")),
     ),
     AptiSensorDescription(
         key="mgmt_due_date",
         name="관리비 마감일",
         device_class=SensorDeviceClass.DATE,
+        device_key=DEVICE_MANAGEMENT_FEE,
         value_fn=lambda d: _parse_yyyymmdd(
             (
                 d.get("manage_home", {})
@@ -135,6 +282,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         key="mgmt_area",
         name="전용면적",
         native_unit_of_measurement=UnitOfArea.SQUARE_METERS,
+        device_key=DEVICE_MANAGEMENT_FEE,
         value_fn=lambda d: _safe_float(d.get("manage_home", {}).get("area")),
     ),
     AptiSensorDescription(
@@ -142,6 +290,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="에너지 요금(우리집)",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_ENERGY,
         value_fn=lambda d: _safe_int(
             d.get("manage_home", {}).get("energyCondition", {}).get("myFee")
         ),
@@ -151,6 +300,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="에너지 요금(평균)",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_ENERGY,
         value_fn=lambda d: _safe_int(
             d.get("manage_home", {}).get("energyCondition", {}).get("avgFee")
         ),
@@ -159,6 +309,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         key="energy_compared_avg",
         name="평균 대비 에너지 사용",
         native_unit_of_measurement=PERCENTAGE,
+        device_key=DEVICE_ENERGY,
         value_fn=lambda d: _safe_int(
             d.get("manage_home", {}).get("energyCondition", {}).get("compAvg")
         ),
@@ -168,6 +319,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="누적 주차시간",
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:car-clock",
+        device_key=DEVICE_PARKING,
         value_fn=lambda d: _safe_int(d.get("parking_visit", {}).get("parkedTime")),
     ),
     AptiSensorDescription(
@@ -175,6 +327,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="무료 잔여시간",
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:timer-sand",
+        device_key=DEVICE_PARKING,
         value_fn=lambda d: _safe_int(d.get("parking_visit", {}).get("remainTime")),
     ),
     AptiSensorDescription(
@@ -182,6 +335,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="예상 주차요금",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_PARKING,
         value_fn=lambda d: _safe_int(d.get("parking_visit", {}).get("expectedParkingFee")),
     ),
     AptiSensorDescription(
@@ -189,6 +343,7 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="주차 기본시간",
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:clock-outline",
+        device_key=DEVICE_PARKING,
         value_fn=lambda d: _safe_int(d.get("parking_visit", {}).get("basedMinutes")),
     ),
     AptiSensorDescription(
@@ -196,24 +351,28 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="주차 기본단가",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_PARKING,
         value_fn=lambda d: _safe_int(d.get("parking_visit", {}).get("basedMinutesFare")),
     ),
     AptiSensorDescription(
         key="parking_visit_vehicle_count",
         name="방문차량 건수",
         icon="mdi:car-multiple",
-        value_fn=lambda d: len(d.get("parking_visit", {}).get("carListResDtoList", [])),
+        device_key=DEVICE_PARKING,
+        value_fn=lambda d: len(_parking_visit_rows(d)),
     ),
     AptiSensorDescription(
         key="payment_history_latest_bill_month",
         name="최근 납부월",
         icon="mdi:calendar-check",
-        value_fn=lambda d: (_get_latest_payment_row(d) or {}).get("billYm"),
+        device_key=DEVICE_PAYMENT,
+        value_fn=lambda d: _safe_text((_get_latest_payment_row(d) or {}).get("billYm")),
     ),
     AptiSensorDescription(
         key="payment_history_latest_paid_date",
         name="최근 납부일",
         device_class=SensorDeviceClass.DATE,
+        device_key=DEVICE_PAYMENT,
         value_fn=lambda d: _parse_yyyymmdd((_get_latest_payment_row(d) or {}).get("payDate")),
     ),
     AptiSensorDescription(
@@ -221,44 +380,51 @@ STATIC_SENSORS: tuple[AptiSensorDescription, ...] = (
         name="최근 납부금액",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_PAYMENT,
         value_fn=lambda d: _safe_int((_get_latest_payment_row(d) or {}).get("amt")),
     ),
     AptiSensorDescription(
         key="payment_next_bill_month",
         name="다음 청구월",
         icon="mdi:calendar-arrow-right",
-        value_fn=lambda d: d.get("manage_payment_next", {}).get("nextBillYm"),
+        device_key=DEVICE_PAYMENT,
+        value_fn=lambda d: _safe_text(d.get("manage_payment_next", {}).get("nextBillYm")),
     ),
     AptiSensorDescription(
         key="payment_my_cash",
         name="보유 캐시",
         native_unit_of_measurement=CURRENCY_KRW,
         device_class=SensorDeviceClass.MONETARY,
+        device_key=DEVICE_PAYMENT,
         value_fn=lambda d: _safe_int(d.get("manage_payment_next", {}).get("myCash")),
     ),
     AptiSensorDescription(
         key="payment_coupon_count",
         name="보유 쿠폰수",
         icon="mdi:ticket-percent",
+        device_key=DEVICE_PAYMENT,
         value_fn=lambda d: _safe_int(d.get("manage_payment_next", {}).get("couponCnt")),
     ),
     AptiSensorDescription(
         key="autodiscount_honey",
         name="꿀단지 할인 사용",
         icon="mdi:honey-outline",
-        value_fn=lambda d: d.get("manage_auto_discount", {}).get("honeyYn"),
+        device_key=DEVICE_MANAGEMENT_FEE,
+        value_fn=lambda d: _safe_text(d.get("manage_auto_discount", {}).get("honeyYn")),
     ),
     AptiSensorDescription(
         key="autodiscount_schedule_month",
         name="자동할인 예정월",
         icon="mdi:calendar-star",
-        value_fn=lambda d: d.get("manage_auto_discount", {}).get("schBillYm"),
+        device_key=DEVICE_MANAGEMENT_FEE,
+        value_fn=lambda d: _safe_text(d.get("manage_auto_discount", {}).get("schBillYm")),
     ),
     AptiSensorDescription(
         key="refresh_interval_minutes",
         name="갱신 주기",
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:update",
+        device_key=DEVICE_SYSTEM,
         value_fn=lambda d: _safe_int(d.get("_scan_interval")),
     ),
 )
@@ -273,7 +439,12 @@ class AptiStaticSensor(AptiCoordinatorEntity, SensorEntity):
         config_entry: ConfigEntry,
         description: AptiSensorDescription,
     ) -> None:
-        super().__init__(coordinator, config_entry, f"sensor_{description.key}")
+        super().__init__(
+            coordinator,
+            config_entry,
+            f"sensor_{description.key}",
+            device_key=description.device_key,
+        )
         self.entity_description = description
         self._attr_name = description.name
         self._attr_icon = description.icon
@@ -287,13 +458,6 @@ class AptiStaticSensor(AptiCoordinatorEntity, SensorEntity):
             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_MINUTES
         )
         return self.entity_description.value_fn(data)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        attrs = super().extra_state_attributes or {}
-        if self.entity_description.attrs_fn:
-            attrs.update(self.entity_description.attrs_fn(self.coordinator.data))
-        return attrs
 
 
 class AptiManagementDetailFeeSensor(AptiCoordinatorEntity, SensorEntity):
@@ -310,43 +474,174 @@ class AptiManagementDetailFeeSensor(AptiCoordinatorEntity, SensorEntity):
         item_no: str,
         item_name: str,
     ) -> None:
-        super().__init__(coordinator, config_entry, f"detail_fee_{item_no}_{slugify(item_name)}")
+        super().__init__(
+            coordinator,
+            config_entry,
+            f"detail_fee_{item_no}_{slugify(item_name)}",
+            device_key=DEVICE_MANAGEMENT_FEE,
+        )
         self._item_no = item_no
         self._item_name = item_name
         self._attr_name = f"관리비 {item_name}"
 
     def _get_item(self) -> dict[str, Any] | None:
-        detail = self.coordinator.data.get("management_fee", {}).get("detail", [])
-        if not isinstance(detail, list):
-            return None
-        for item in detail:
-            if isinstance(item, dict) and str(item.get("itemNo")) == self._item_no:
-                return item
-        return None
+        return _find_management_detail_item(self.coordinator.data, self._item_no)
 
     @property
     def native_value(self) -> int | None:
         item = self._get_item()
         return _safe_int(item.get("fee")) if item else None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        attrs = super().extra_state_attributes or {}
-        item = self._get_item()
-        if not item:
-            return attrs
 
-        attrs.update(
-            {
-                "item_no": item.get("itemNo"),
-                "item_name": item.get("itemName"),
-                "increase": item.get("increase"),
-                "usage": item.get("usage"),
-                "unit": item.get("unit"),
-                "sub_items": item.get("list") or [],
-            }
+class AptiManagementDetailMetaSensor(AptiCoordinatorEntity, SensorEntity):
+    """Expose per-item metadata from management fee detail as entities."""
+
+    def __init__(
+        self,
+        coordinator: APTiDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        item_no: str,
+        item_name: str,
+        metric: str,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            config_entry,
+            f"detail_meta_{item_no}_{slugify(item_name)}_{metric}",
+            device_key=DEVICE_MANAGEMENT_FEE,
         )
-        return attrs
+        self._item_no = item_no
+        self._metric = metric
+
+        if metric == "item_no":
+            self._attr_name = f"{item_name} 항목 코드"
+            self._attr_icon = "mdi:identifier"
+        elif metric == "usage":
+            self._attr_name = f"{item_name} 사용량"
+            self._attr_icon = "mdi:gauge"
+        elif metric == "increase":
+            self._attr_name = f"{item_name} 증감"
+            self._attr_icon = "mdi:chart-line"
+        else:
+            self._attr_name = f"{item_name} 단위"
+            self._attr_icon = "mdi:ruler"
+
+    def _item(self) -> dict[str, Any] | None:
+        return _find_management_detail_item(self.coordinator.data, self._item_no)
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        if self._metric != "usage":
+            return None
+        item = self._item()
+        return _safe_text(item.get("unit")) if item else None
+
+    @property
+    def native_value(self) -> int | float | str | None:
+        item = self._item()
+        if not item:
+            return None
+
+        if self._metric == "item_no":
+            return _safe_text(item.get("itemNo"))
+        if self._metric == "usage":
+            return _safe_float(item.get("usage"))
+        if self._metric == "increase":
+            return _safe_float(item.get("increase"))
+        return _safe_text(item.get("unit"))
+
+
+class AptiManagementDetailSubItemSensor(AptiCoordinatorEntity, SensorEntity):
+    """Expose sub-item values under management fee detail."""
+
+    def __init__(
+        self,
+        coordinator: APTiDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        item_no: str,
+        item_name: str,
+        sub_index: int,
+        sub_title: str,
+        value_key: str,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            config_entry,
+            (
+                f"detail_sub_item_{item_no}_{slugify(item_name)}_"
+                f"{sub_index}_{slugify(sub_title)}_{slugify(value_key)}"
+            ),
+            device_key=DEVICE_MANAGEMENT_FEE,
+        )
+        self._item_no = item_no
+        self._sub_index = sub_index
+        self._value_key = value_key
+
+        self._attr_name = f"{item_name} {sub_title}"
+        self._attr_icon = "mdi:cash-plus"
+
+        if value_key in {"amt", "fee", "amount"}:
+            self._attr_device_class = SensorDeviceClass.MONETARY
+            self._attr_native_unit_of_measurement = CURRENCY_KRW
+        elif value_key.endswith("Time") or value_key.endswith("Minutes"):
+            self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
+
+    def _sub_item(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        parent = _find_management_detail_item(self.coordinator.data, self._item_no)
+        if not parent:
+            return None
+
+        rows = parent.get("list", [])
+        if not isinstance(rows, list):
+            return None
+
+        index = self._sub_index - 1
+        if index < 0 or index >= len(rows):
+            return None
+
+        row = rows[index]
+        if not isinstance(row, dict):
+            return None
+        return parent, row
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        if self._value_key != "usage":
+            return self._attr_native_unit_of_measurement
+
+        data = self._sub_item()
+        if not data:
+            return None
+        parent, row = data
+
+        unit = _safe_text(row.get("unit"))
+        if unit:
+            return unit
+        return _safe_text(parent.get("unit"))
+
+    @property
+    def native_value(self) -> int | float | str | None:
+        data = self._sub_item()
+        if not data:
+            return None
+
+        _, row = data
+        value = row.get(self._value_key)
+        if value is None:
+            return None
+
+        if self._value_key in {"amt", "fee", "amount"}:
+            return _safe_int(value)
+
+        int_value = _safe_int(value)
+        if int_value is not None:
+            return int_value
+
+        float_value = _safe_float(value)
+        if float_value is not None:
+            return float_value
+
+        return _safe_text(value)
 
 
 class AptiDiscountSensor(AptiCoordinatorEntity, SensorEntity):
@@ -367,7 +662,12 @@ class AptiDiscountSensor(AptiCoordinatorEntity, SensorEntity):
         unique = f"discount_{slugify(discount_group)}_{slugify(title)}"
         if sub_title:
             unique = f"{unique}_{slugify(sub_title)}"
-        super().__init__(coordinator, config_entry, unique)
+        super().__init__(
+            coordinator,
+            config_entry,
+            unique,
+            device_key=DEVICE_MANAGEMENT_FEE,
+        )
         self._group = discount_group
         self._title = title
         self._sub_title = sub_title
@@ -409,35 +709,44 @@ class AptiDiscountSensor(AptiCoordinatorEntity, SensorEntity):
     def native_value(self) -> int | None:
         return self._find_amount()
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        attrs = super().extra_state_attributes or {}
-        attrs.update({"group": self._group, "title": self._title, "sub_title": self._sub_title})
-        return attrs
-
 
 class AptiPaymentStateSensor(AptiCoordinatorEntity, SensorEntity):
-    """Count/total sensors per payment history state code."""
-
-    _attr_icon = "mdi:history"
+    """Sensors per payment history state code."""
 
     def __init__(
         self,
         coordinator: APTiDataUpdateCoordinator,
         config_entry: ConfigEntry,
         state_code: str,
-        mode: str,
+        metric: str,
     ) -> None:
-        super().__init__(coordinator, config_entry, f"payment_state_{state_code}_{mode}")
+        super().__init__(
+            coordinator,
+            config_entry,
+            f"payment_state_{state_code}_{metric}",
+            device_key=DEVICE_PAYMENT,
+        )
         self._state_code = state_code
-        self._mode = mode
-        if mode == "count":
+        self._metric = metric
+
+        if metric == "count":
             self._attr_name = f"납부이력 {state_code} 건수"
             self._attr_icon = "mdi:counter"
-        else:
+        elif metric == "amount":
             self._attr_name = f"납부이력 {state_code} 금액"
+            self._attr_icon = "mdi:cash-multiple"
             self._attr_device_class = SensorDeviceClass.MONETARY
             self._attr_native_unit_of_measurement = CURRENCY_KRW
+        elif metric == "state_name":
+            self._attr_name = f"납부이력 {state_code} 상태명"
+            self._attr_icon = "mdi:label-outline"
+        elif metric == "latest_bill_month":
+            self._attr_name = f"납부이력 {state_code} 최근 청구월"
+            self._attr_icon = "mdi:calendar-month"
+        else:
+            self._attr_name = f"납부이력 {state_code} 최근 납부일"
+            self._attr_icon = "mdi:calendar-check"
+            self._attr_device_class = SensorDeviceClass.DATE
 
     def _rows(self) -> list[dict[str, Any]]:
         rows = self.coordinator.data.get("payment_histories", {}).get(self._state_code, [])
@@ -445,80 +754,87 @@ class AptiPaymentStateSensor(AptiCoordinatorEntity, SensorEntity):
             return []
         return [row for row in rows if isinstance(row, dict)]
 
-    @property
-    def native_value(self) -> int:
+    def _latest(self) -> dict[str, Any] | None:
         rows = self._rows()
-        if self._mode == "count":
+        if not rows:
+            return None
+        return max(
+            rows,
+            key=lambda row: (
+                str(row.get("payDate", "")),
+                str(row.get("billYm", "")),
+            ),
+        )
+
+    @property
+    def native_value(self) -> int | str | date | None:
+        rows = self._rows()
+
+        if self._metric == "count":
             return len(rows)
-        return sum(_safe_int(row.get("amt")) or 0 for row in rows)
+        if self._metric == "amount":
+            return sum(_safe_int(row.get("amt")) or 0 for row in rows)
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        attrs = super().extra_state_attributes or {}
-        rows = self._rows()
-        latest = (
-            max(
-                rows,
-                key=lambda row: (
-                    str(row.get("payDate", "")),
-                    str(row.get("billYm", "")),
-                ),
-            )
-            if rows
-            else None
-        )
-        attrs.update(
-            {
-                "state_code": self._state_code,
-                "state_name": latest.get("stateName") if latest else None,
-                "latest_bill_month": latest.get("billYm") if latest else None,
-                "latest_paid_date": latest.get("payDate") if latest else None,
-            }
-        )
-        return attrs
+        latest = self._latest()
+        if not latest:
+            return None
+
+        if self._metric == "state_name":
+            return _safe_text(latest.get("stateName"))
+        if self._metric == "latest_bill_month":
+            return _safe_text(latest.get("billYm"))
+        return _parse_yyyymmdd(_safe_text(latest.get("payDate")))
 
 
-class AptiParkingRecentVisitSensor(AptiCoordinatorEntity, SensorEntity):
-    """Expose recent visit vehicle list as attributes."""
-
-    _attr_icon = "mdi:car-info"
-    _attr_name = "방문차량 상세"
+class AptiParkingVisitDetailSensor(AptiCoordinatorEntity, SensorEntity):
+    """Expose parking visit detail fields as standalone entities."""
 
     def __init__(
         self,
         coordinator: APTiDataUpdateCoordinator,
         config_entry: ConfigEntry,
+        visit_index: int,
+        visit_key: str,
+        field: AptiParkingVisitFieldDescription,
     ) -> None:
-        super().__init__(coordinator, config_entry, "parking_recent_visits")
+        super().__init__(
+            coordinator,
+            config_entry,
+            f"parking_visit_{visit_index}_{slugify(visit_key)}_{field.key}",
+            device_key=DEVICE_PARKING,
+        )
+        self._visit_index = visit_index
+        self._field = field
 
-    def _cars(self) -> list[dict[str, Any]]:
-        cars = self.coordinator.data.get("parking_visit", {}).get("carListResDtoList", [])
-        if not isinstance(cars, list):
-            return []
-        return [car for car in cars if isinstance(car, dict)]
+        self._attr_name = f"방문차량 {visit_index} {field.name}"
+        self._attr_icon = field.icon
+        self._attr_native_unit_of_measurement = field.native_unit_of_measurement
+        self._attr_device_class = field.device_class
+
+    def _visit(self) -> dict[str, Any] | None:
+        rows = _parking_visit_rows(self.coordinator.data)
+        index = self._visit_index - 1
+        if index < 0 or index >= len(rows):
+            return None
+        return rows[index]
 
     @property
-    def native_value(self) -> int:
-        return len(self._cars())
+    def native_value(self) -> int | str | date | None:
+        row = self._visit()
+        if not row:
+            return None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        attrs = super().extra_state_attributes or {}
-        cars = self._cars()
-        attrs["cars"] = [
-            {
-                "car_no": car.get("carNoInformation"),
-                "visit_date": car.get("visitDate"),
-                "in_date": car.get("carInDate"),
-                "out_date": car.get("carOutDate"),
-                "parked_minutes": car.get("parkedTimeLong") or car.get("parkedTime"),
-                "discount_minutes": car.get("discountTime"),
-                "calc_minutes": car.get("calcTime"),
-                "visit_type": car.get("visitType"),
-            }
-            for car in cars
-        ]
-        return attrs
+        value = _pick_scalar_value(row, self._field.source_keys)
+        if value is None:
+            return None
+
+        if self._field.device_class == SensorDeviceClass.DATE:
+            return _parse_yyyymmdd(_safe_text(value))
+
+        if self._field.native_unit_of_measurement == UnitOfTime.MINUTES:
+            return _safe_int(value)
+
+        return _safe_text(value)
 
 
 class AptiEnergySensor(AptiCoordinatorEntity, SensorEntity):
@@ -531,7 +847,12 @@ class AptiEnergySensor(AptiCoordinatorEntity, SensorEntity):
         energy_key: str,
         metric: str,
     ) -> None:
-        super().__init__(coordinator, config_entry, f"energy_{energy_key}_{metric}")
+        super().__init__(
+            coordinator,
+            config_entry,
+            f"energy_{energy_key}_{metric}",
+            device_key=DEVICE_ENERGY,
+        )
         self._energy_key = energy_key
         self._metric = metric
         labels = {
@@ -565,7 +886,7 @@ class AptiEnergySensor(AptiCoordinatorEntity, SensorEntity):
         item = self._energy_obj()
         if not item:
             return None
-        return item.get("unit")
+        return _safe_text(item.get("unit"))
 
     @property
     def native_value(self) -> int | float | None:
@@ -576,14 +897,6 @@ class AptiEnergySensor(AptiCoordinatorEntity, SensorEntity):
         if self._metric == "fee":
             return _safe_int(value)
         return _safe_float(value)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        attrs = super().extra_state_attributes or {}
-        item = self._energy_obj()
-        if item:
-            attrs.update({"energy_key": self._energy_key, "unit": item.get("unit")})
-        return attrs
 
 
 async def async_setup_entry(
@@ -602,22 +915,69 @@ async def async_setup_entry(
     for state_code in PAYMENT_STATE_CODES:
         entities.append(AptiPaymentStateSensor(coordinator, config_entry, state_code, "count"))
         entities.append(AptiPaymentStateSensor(coordinator, config_entry, state_code, "amount"))
+        entities.append(
+            AptiPaymentStateSensor(coordinator, config_entry, state_code, "state_name")
+        )
+        entities.append(
+            AptiPaymentStateSensor(coordinator, config_entry, state_code, "latest_bill_month")
+        )
+        entities.append(
+            AptiPaymentStateSensor(coordinator, config_entry, state_code, "latest_paid_date")
+        )
 
     for energy_key in ("electric", "water", "heat", "hotwater"):
         entities.append(AptiEnergySensor(coordinator, config_entry, energy_key, "fee"))
         entities.append(AptiEnergySensor(coordinator, config_entry, energy_key, "use"))
 
-    detail_items = coordinator.data.get("management_fee", {}).get("detail", [])
-    if isinstance(detail_items, list):
-        for item in detail_items:
-            if not isinstance(item, dict):
-                continue
-            item_no = str(item.get("itemNo") or "").strip()
-            item_name = str(item.get("itemName") or "").strip()
-            if not item_no or not item_name:
-                continue
+    detail_items = _management_detail_rows(coordinator.data)
+    for item in detail_items:
+        item_no = _safe_text(item.get("itemNo"))
+        item_name = _safe_text(item.get("itemName"))
+        if not item_no or not item_name:
+            continue
+
+        entities.append(AptiManagementDetailFeeSensor(coordinator, config_entry, item_no, item_name))
+
+        for metric in ("item_no", "usage", "increase", "unit"):
             entities.append(
-                AptiManagementDetailFeeSensor(coordinator, config_entry, item_no, item_name)
+                AptiManagementDetailMetaSensor(
+                    coordinator,
+                    config_entry,
+                    item_no,
+                    item_name,
+                    metric,
+                )
+            )
+
+        sub_items = item.get("list", [])
+        if not isinstance(sub_items, list):
+            continue
+
+        for sub_index, sub_item in enumerate(sub_items, start=1):
+            if not isinstance(sub_item, dict):
+                continue
+
+            sub_title = _safe_text(
+                sub_item.get("title") or sub_item.get("itemName") or sub_item.get("name")
+            ) or f"세부항목{sub_index}"
+
+            value_key = _pick_dynamic_value_key(
+                sub_item,
+                preferred=("amt", "fee", "amount", "usage", "value"),
+            )
+            if not value_key:
+                continue
+
+            entities.append(
+                AptiManagementDetailSubItemSensor(
+                    coordinator,
+                    config_entry,
+                    item_no,
+                    item_name,
+                    sub_index,
+                    sub_title,
+                    value_key,
+                )
             )
 
     discount = coordinator.data.get("management_fee", {}).get("discount", {})
@@ -654,5 +1014,17 @@ async def async_setup_entry(
                             )
                         )
 
-    entities.append(AptiParkingRecentVisitSensor(coordinator, config_entry))
+    for visit_index, row in enumerate(_parking_visit_rows(coordinator.data), start=1):
+        visit_key = _safe_text(row.get("carNoInformation")) or f"visit_{visit_index}"
+        for field in PARKING_VISIT_FIELDS:
+            entities.append(
+                AptiParkingVisitDetailSensor(
+                    coordinator,
+                    config_entry,
+                    visit_index,
+                    visit_key,
+                    field,
+                )
+            )
+
     async_add_entities(entities)

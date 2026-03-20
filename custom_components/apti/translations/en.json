@@ -6,8 +6,7 @@
         "description": "Enter your APTi mobile login credentials.",
         "data": {
           "username": "ID (phone number)",
-          "password": "Password",
-          "scan_interval": "Refresh interval (minutes)"
+          "password": "Password"
         }
       }
     },

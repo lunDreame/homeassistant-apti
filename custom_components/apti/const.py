@@ -9,7 +9,7 @@ from homeassistant.const import Platform
 DOMAIN = "apti"
 NAME = "APTi"
 MANUFACTURER = "APTi"
-DEFAULT_SCAN_INTERVAL_MINUTES = 10
+DEFAULT_SCAN_INTERVAL_MINUTES = 15
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=DEFAULT_SCAN_INTERVAL_MINUTES)
 API_BASE_URL = "https://api-main.apti.co.kr"
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]

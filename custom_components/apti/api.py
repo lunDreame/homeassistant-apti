@@ -44,17 +44,20 @@ class APTiClient:
         if self._mbl_token and not force:
             return {"mblToken": self._mbl_token}
 
-        payload = await self._request(
-            "POST",
-            "/api/v2/login/phone",
-            auth_required=False,
-            retry_on_auth=False,
-            json_body={
-                "id": self._account_id,
-                "password": self._password,
-                "plainText": self._password,
-            },
-        )
+        try:
+            payload = await self._request(
+                "POST",
+                "/api/v2/login/phone",
+                auth_required=False,
+                retry_on_auth=False,
+                json_body={
+                    "id": self._account_id,
+                    "password": self._password,
+                    "plainText": self._password,
+                },
+            )
+        except APTiApiError:
+            raise
 
         token = payload.get("mblToken") or payload.get("mbl_token")
         if not token:
@@ -210,9 +213,10 @@ class APTiClient:
 
                 if response.status >= 400:
                     message = self._extract_error_message(payload)
+                    detail = f"{message} (HTTP {response.status} {path})"
                     if response.status in (401, 403):
-                        raise APTiAuthError(message)
-                    raise APTiApiError(message)
+                        raise APTiAuthError(detail)
+                    raise APTiApiError(detail)
 
                 return payload
         except APTiAuthError:
@@ -257,4 +261,3 @@ class APTiClient:
                 if value not in (None, ""):
                     return str(value)
         return "APTi API request failed"
-
