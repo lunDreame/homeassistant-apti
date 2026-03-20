@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Read component version from manifest
+        id: manifest
+        run: |
+          VERSION=$(jq -r '.version' custom_components/apti/manifest.json)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "manifest version is missing" >&2
+            exit 1
+          fi
+
+          TAG="${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.manifest.outputs.tag }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release notes from pushed commits
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          {
+            echo "## Changes"
+            echo
+            jq -r '
+              if (.commits | length) == 0 then
+                "- No commit details were included in this push payload."
+              else
+                .commits[]
+                | "- [" + (.id[0:7]) + "](" + .url + ") "
+                  + ((.message | split("\\n")[0]) // "(no message)")
+                  + " (" + (.author.username // .author.name // "unknown") + ")"
+              end
+            ' "$GITHUB_EVENT_PATH"
+          } > release_notes.md
+
+      - name: Create GitHub release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.manifest.outputs.tag }}
+          name: ${{ steps.manifest.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body_path: release_notes.md
+
+      - name: Skip release if tag already exists
+        if: steps.tag_check.outputs.exists == 'true'
+        run: |
+          echo "Tag ${{ steps.manifest.outputs.tag }} already exists. Skipping release creation."

@@ -1,42 +1,33 @@
 {
-    "title": "APTi",
-    "config": {
-        "step": {
-            "user": {
-                "description": "Please enter your ID or mobile phone number.",
-                "data": {
-                    "id": "ID / HP",
-                    "password": "Password"
-                },
-                "data_description": {
-                    "id": "For mobile phone number, please enter only numbers."
-                }
-            }
-        },
-        "abort": {
-            "single_instance_allowed": "Only a single configuration is allowed."
-        },
-        "error": {
-            "login_failed": "Login failed"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect APTi account",
+        "description": "Enter your APTi mobile login credentials.",
+        "data": {
+          "username": "ID (phone number)",
+          "password": "Password"
         }
+      }
     },
-    "entity": {
-        "sensor": {
-            "maint_item": {
-                "name": "{category}"
-            },
-            "maint_payment": {
-                "name": "Maintenance Payment Amount"
-            },
-            "energy_usage": {
-                "name": "Total Energy Use"
-            },
-            "energy_detail": {
-                "name": "{category} Usage"
-            },
-            "energy_type": {
-                "name": "Total {category} Energy"
-            }
-        }
+    "error": {
+      "invalid_auth": "Invalid ID or password.",
+      "cannot_connect": "Cannot connect to APTi server.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "APTi options",
+        "data": {
+          "scan_interval": "Refresh interval (minutes)"
+        }
+      }
+    }
+  }
 }
+

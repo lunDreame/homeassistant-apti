@@ -1,19 +1,17 @@
-"""Define constants for AptI."""
+"""Constants for the APTi integration."""
 
 from __future__ import annotations
 
 from datetime import timedelta
-import logging
 
 from homeassistant.const import Platform
 
 DOMAIN = "apti"
-VERSION = "1.0.7"
+NAME = "APTi"
+MANUFACTURER = "APTi"
+DEFAULT_SCAN_INTERVAL_MINUTES = 15
+DEFAULT_SCAN_INTERVAL = timedelta(minutes=DEFAULT_SCAN_INTERVAL_MINUTES)
+API_BASE_URL = "https://api-main.apti.co.kr"
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PAYMENT_STATE_CODES: tuple[str, ...] = ("001", "002", "003", "004", "005")
 
-PLATFORMS: list[Platform] = [
-    Platform.SENSOR
-]
-
-LOGGER = logging.getLogger(__package__)
-
-UPDATE_ME_INTERVAL = timedelta(days=7)

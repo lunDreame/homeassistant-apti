@@ -1,16 +1,16 @@
 {
-    "domain": "apti",
-    "name": "아파트아이",
-    "codeowners": [
-        "@lunDreame"
-    ],
-    "config_flow": true,
-    "documentation": "https://github.com/lunDreame/homeassistant-apti",
-    "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/lunDreame/homeassistant-apti/issues",
-    "requirements": [
-        "aiofiles==24.1.0",
-        "beautifulsoup4==4.12.3"
-    ],
-    "version": "1.0.7"
+  "domain": "apti",
+  "name": "APTi",
+  "version": "2.0.1",
+  "config_flow": true,
+  "documentation": "https://github.com/lunDreame/homeassistant-apti",
+  "issue_tracker": "https://github.com/lunDreame/homeassistant-apti/issues",
+  "codeowners": [
+    "@lunDreame"
+  ],
+  "iot_class": "cloud_polling",
+  "loggers": [
+    "custom_components.apti"
+  ]
 }
+

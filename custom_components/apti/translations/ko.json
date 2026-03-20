@@ -1,42 +1,33 @@
 {
-    "title": "아파트아이",
-    "config": {
-        "step": {
-            "user": {
-                "description": "아이디 또는 휴대폰 번호를 입력해 주세요.",
-                "data": {
-                    "id": "아이디 / 휴대폰 번호",
-                    "password": "패스워드"
-                },
-                "data_description": {
-                    "id": "휴대폰 번호의 경우 숫자만 입력해 주세요."
-                }
-            }
-        },
-        "abort": {
-            "single_instance_allowed": "Only a single configuration is allowed."
-        },
-        "error": {
-            "login_failed": "로그인 실패"
+  "config": {
+    "step": {
+      "user": {
+        "title": "APTi 계정 연결",
+        "description": "아파트아이 앱 로그인 정보를 입력하세요.",
+        "data": {
+          "username": "아이디(휴대폰번호)",
+          "password": "비밀번호"
         }
+      }
     },
-    "entity": {
-        "sensor": {
-            "maint_item": {
-                "name": "{category}"
-            },
-            "maint_payment": {
-                "name": "관리비 납부 금액"
-            },
-            "energy_usage": {
-                "name": "에너지 사용 총액"
-            },
-            "energy_detail": {
-                "name": "{category} 사용량"
-            },
-            "energy_type": {
-                "name": "{category} 에너지 총액"
-            }
-        }
+    "error": {
+      "invalid_auth": "아이디 또는 비밀번호가 올바르지 않습니다.",
+      "cannot_connect": "아파트아이 서버에 연결할 수 없습니다.",
+      "unknown": "알 수 없는 오류가 발생했습니다."
+    },
+    "abort": {
+      "already_configured": "이미 추가된 계정입니다."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "APTi 옵션",
+        "data": {
+          "scan_interval": "갱신 주기(분)"
+        }
+      }
+    }
+  }
 }
+

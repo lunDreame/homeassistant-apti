@@ -1,76 +1,89 @@
-"""Base class for APT.i entities."""
+"""Shared entity helpers for APTi."""
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+import re
 
-from homeassistant.helpers.entity import Entity, DeviceInfo
-from homeassistant.core import callback
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN, MANUFACTURER, NAME
 from .coordinator import APTiDataUpdateCoordinator
-from .const import DOMAIN
+
+_RE_NON_WORD = re.compile(r"[^0-9a-zA-Z_]+")
+
+DEVICE_ACCOUNT = "account"
+DEVICE_MANAGEMENT_FEE = "management_fee"
+DEVICE_PARKING = "parking"
+DEVICE_PAYMENT = "payment"
+DEVICE_ENERGY = "energy"
+DEVICE_SYSTEM = "system"
 
 
-class APTiBase:
-    """Base class for APT.i."""
+@dataclass(frozen=True, slots=True)
+class AptiDeviceDescriptor:
+    """Device metadata for category grouping."""
+
+    name: str
+    model: str
+
+
+DEVICE_DESCRIPTORS: dict[str, AptiDeviceDescriptor] = {
+    DEVICE_ACCOUNT: AptiDeviceDescriptor(name="계정", model="Account"),
+    DEVICE_MANAGEMENT_FEE: AptiDeviceDescriptor(name="관리비", model="Management Fee"),
+    DEVICE_PARKING: AptiDeviceDescriptor(name="주차", model="Parking"),
+    DEVICE_PAYMENT: AptiDeviceDescriptor(name="납부", model="Payment"),
+    DEVICE_ENERGY: AptiDeviceDescriptor(name="에너지", model="Energy"),
+    DEVICE_SYSTEM: AptiDeviceDescriptor(name="시스템", model="System"),
+}
+
+
+def slugify(value: str) -> str:
+    """Return stable slug text from free-form string."""
+    cleaned = _RE_NON_WORD.sub("_", value.strip())
+    cleaned = cleaned.strip("_").lower()
+    return cleaned or "unknown"
+
+
+class AptiCoordinatorEntity(CoordinatorEntity[APTiDataUpdateCoordinator]):
+    """Base entity class grouped by category devices."""
+
+    _attr_has_entity_name = True
 
     def __init__(
-        self, coordinator: APTiDataUpdateCoordinator, description
-    ):
-        self.coordinator = coordinator
-        self.description = description
-    
+        self,
+        coordinator: APTiDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        unique_suffix: str,
+        device_key: str,
+    ) -> None:
+        """Initialize entity."""
+        super().__init__(coordinator)
+        self._config_entry = config_entry
+        self._device_key = (
+            device_key if device_key in DEVICE_DESCRIPTORS else DEVICE_SYSTEM
+        )
+        self._attr_unique_id = f"{config_entry.entry_id}_{self._device_key}_{unique_suffix}"
+
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device registry information for this entity."""
+        """Expose category-specific devices for readability."""
+        account = self.coordinator.data.get("account", {})
+        apt_name = str(account.get("aptName") or account.get("apt_name") or NAME).strip()
+        dong = str(account.get("dong") or account.get("aptDong") or "").strip()
+        ho = str(account.get("ho") or account.get("aptHo") or "").strip()
+
+        label = apt_name or NAME
+        if dong and ho:
+            label = f"{apt_name} {dong}-{ho}"
+
+        descriptor = DEVICE_DESCRIPTORS[self._device_key]
+
         return DeviceInfo(
-            configuration_url="https://www.apti.co.kr/apti/",
-            identifiers={(
-                DOMAIN, f"{self.coordinator.id}_{self.description.chepter_name}"
-            )},
-            manufacturer="APT.i Co.,Ltd.",
-            model="APT.i",
-            name=self.description.chepter_name,
+            identifiers={(DOMAIN, f"{self._config_entry.entry_id}_{self._device_key}")},
+            manufacturer=MANUFACTURER,
+            model=descriptor.model,
+            name=f"{label} {descriptor.name}",
         )
-
-
-class APTiDevice(APTiBase, Entity):
-    """APT.i device class."""
-
-    def __init__(self, coordinator, description):
-        super().__init__(coordinator, description)
-        self._attr_has_entity_name = True
-
-    @property
-    def entity_registry_enabled_default(self):
-        """Return whether the entity registry is enabled."""
-        return True
-
-    async def async_added_to_hass(self):
-        """Called when added to Hass."""
-        self.coordinator.api.data.add_callback(self.async_update_callback)
-        self.schedule_update_ha_state()
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Called when removed from Hass."""
-        self.coordinator.api.data.remove_callback(self.async_update_callback)
-
-    @callback
-    def async_restore_last_state(self, last_state) -> None:
-        """Restore the last state."""
-        pass
-
-    @callback
-    def async_update_callback(self):
-        """Schedule a state update callback."""
-        self.async_schedule_update_ha_state()
-
-    @property
-    def available(self) -> bool:
-        """Return whether the device is available."""
-        return self.coordinator.api.logged_in
-
-    @property
-    def should_poll(self) -> bool:
-        """Return whether polling is needed."""
-        return True
